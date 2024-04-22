@@ -1,4 +1,4 @@
-from esann.dataset_preparation import DatasetPreparation, get_path
+from esann.dataset_preparation import DatasetPreparation
 
 dataset = DatasetPreparation()
 dataset.load("MR")
