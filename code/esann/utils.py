@@ -7,3 +7,5 @@ def get_path() -> dict:
     path["code"] = path["root"] / "code"
     path["data"] = path["root"] / "data"
     return path
+
+GLOBAL_SEED = 0
