@@ -1,4 +1,4 @@
-from esann.dataset_preparation import DatasetPreparation
+from esann.orchestrator import Orchestrator
 
-dataset = DatasetPreparation()
-dataset.load("MR")
+orchestrator = Orchestrator()
+orchestrator.run()

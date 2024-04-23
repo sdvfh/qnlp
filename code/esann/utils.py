@@ -9,3 +9,4 @@ def get_path() -> dict:
     return path
 
 GLOBAL_SEED = 0
+N_REPETITIONS = 30

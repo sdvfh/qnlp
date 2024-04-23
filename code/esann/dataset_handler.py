@@ -6,9 +6,10 @@ import shutil
 import pandas as pd
 import torch
 from transformers import BertTokenizer, BertModel
-import pickle
 import random
 import numpy as np
+from sklearn.model_selection import train_test_split
+
 
 class DatasetProcessor:
     _folder_name = None
@@ -22,8 +23,10 @@ class DatasetProcessor:
 
         self._path["folder_sentence_embeddings"] = self._path["folder_root_dataset"] / "sentence_embeddings"
         self._path["folder_sentence_embeddings"].mkdir(parents=True, exist_ok=True)
-        self._path["file_unified_sentence_embeddings"] = (
-                self._path["folder_sentence_embeddings"] / f"{self._folder_name}.pkl")
+        self._path["x_data"] = (
+                self._path["folder_root_dataset"] / f"x_data.npy")
+        self._path["y_data"] = (
+                self._path["folder_root_dataset"] / f"y_data.npy")
 
     def download(self):
         raise NotImplementedError()
@@ -32,21 +35,29 @@ class DatasetProcessor:
         raise NotImplementedError()
 
     def process(self):
-        if self._path["file_unified_sentence_embeddings"].exists():
-            return
+        if self.df_processing_done():
+            self._df = pd.DataFrame()
+
+            with open(self._path["x_data"], "rb") as file:
+                x_data = np.load(file)
+            with open(self._path["y_data"], "rb") as file:
+                y_data = np.load(file)
+            return x_data, y_data
+
         torch.use_deterministic_algorithms(True)
         device = "cuda" if torch.cuda.is_available() else "cpu"
         tokenizer = BertTokenizer.from_pretrained("bert-large-uncased", use_fast=True, device=device)
         model = BertModel.from_pretrained("bert-large-uncased").to(device)
 
         for idx, line in self._df.iterrows():
-            file_path = self._path["folder_sentence_embeddings"] / f"{idx}.pkl"
+            file_path = self._path["folder_sentence_embeddings"] / f"{idx}.npy"
             if file_path.exists():
                 continue
 
-            random.seed(0)
-            np.random.seed(0)
-            torch.manual_seed(0)
+            random.seed(GLOBAL_SEED)
+            np.random.seed(GLOBAL_SEED)
+            torch.manual_seed(GLOBAL_SEED)
+
             text_tokenized = tokenizer(
                 line["sentence"],
                 # TODO: study the max_length parameter
@@ -61,12 +72,27 @@ class DatasetProcessor:
                 outputs = model(**text_tokenized)
             sentence_embedding = outputs.last_hidden_state.mean(dim=1).cpu().numpy()
             with open(file_path, "wb") as file:
-                pickle.dump(sentence_embedding, file)
+                np.save(file, sentence_embedding)
             print(f"Processed {idx} of {len(self._df)}")
 
-    def create_embeddings(self):
-        raise NotImplementedError()
+        embeddings = []
+        for idx, line in self._df.iterrows():
+            file_path = self._path["folder_sentence_embeddings"] / f"{idx}.npy"
+            with open(file_path, "rb") as file:
+                embeddings.append(np.load(file))
 
+        embeddings = np.row_stack(embeddings)
+        with open(self._path["x_data"], "wb") as file:
+            np.save(file, embeddings)
+
+        with open(self._path["y_data"], "wb") as file:
+            np.save(file, self._df["label"].values)
+
+        self._df = pd.DataFrame()
+        return embeddings, self._df["label"].values
+
+    def df_processing_done(self):
+        return self._path["x_data"].exists() and self._path["y_data"].exists()
 
 class MovieReviewProcessor(DatasetProcessor):
     _folder_name = "movie_review"
@@ -103,12 +129,37 @@ class MovieReviewProcessor(DatasetProcessor):
             self._df = pd.read_parquet(self._path["file_all_sentences"])
 
 
-class DatasetPreparation:
-    _options = {"MR": MovieReviewProcessor}
+class DatasetHandler:
+    datasets = {"MR": MovieReviewProcessor}
+
+    def __init__(self):
+        self.dataset = {"original": {"x": None, "y": None}}
 
     def load(self, dataset_initials: str):
-        df_processor = self._options[dataset_initials]()
-        df_processor.download()
-        df_processor.load()
-        df_processor.process()
-        df_processor.create_embeddings()
+        df_processor = self.datasets[dataset_initials]()
+        if not df_processor.df_processing_done():
+            df_processor.download()
+            df_processor.load()
+        self.dataset["original"]["x"], self.dataset["original"]["y"] = df_processor.process()
+
+    def split_train_valid_test(self, seed: int):
+        x_train_valid, x_test, y_train_valid, y_test = train_test_split(
+            self.dataset["original"]["x"],
+            self.dataset["original"]["y"],
+            test_size=1 / 4,
+            random_state=seed,
+            stratify=self.dataset["original"]["y"],
+        )
+        x_train, x_valid, y_train, y_valid = train_test_split(
+            x_train_valid,
+            y_train_valid,
+            test_size=1 / 3,
+            random_state=seed,
+            stratify=y_train_valid,
+        )
+        datasets = {
+            "train": {"x": x_train, "y": y_train},
+            "valid": {"x": x_valid, "y": y_valid},
+            "test": {"x": x_test, "y": y_test}
+        }
+        self.dataset.update(datasets)
