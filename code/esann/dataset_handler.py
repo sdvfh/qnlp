@@ -1,38 +1,45 @@
-from urllib.request import urlopen
-from .utils import get_path, GLOBAL_SEED
+import shutil
 import tarfile
 import urllib.request
-import shutil
+from urllib.request import urlopen
+
+import numpy as np
 import pandas as pd
 import torch
-from transformers import BertTokenizer, BertModel
-import random
-import numpy as np
 from sklearn.model_selection import train_test_split
+from transformers import BertModel, BertTokenizer
+
+from .utils import get_path
 
 
 class DatasetProcessor:
     _folder_name = None
 
-    def __init__(self):
+    def __init__(self, seed):
+        self.seed = seed
         self._path = get_path()
         self._df = pd.DataFrame()
 
         self._path["folder_root_dataset"] = self._path["data"] / self._folder_name
         self._path["folder_root_dataset"].mkdir(parents=True, exist_ok=True)
 
-        self._path["folder_sentence_embeddings"] = self._path["folder_root_dataset"] / "sentence_embeddings"
+        self._path["folder_root_dataset_seed"] = (
+            self._path["data"] / self._folder_name / "seeds" / str(self.seed)
+        )
+        self._path["folder_root_dataset_seed"].mkdir(parents=True, exist_ok=True)
+
+        self._path["folder_sentence_embeddings"] = (
+            self._path["folder_root_dataset_seed"] / "sentence_embeddings"
+        )
         self._path["folder_sentence_embeddings"].mkdir(parents=True, exist_ok=True)
-        self._path["x_data"] = (
-                self._path["folder_root_dataset"] / f"x_data.npy")
-        self._path["y_data"] = (
-                self._path["folder_root_dataset"] / f"y_data.npy")
+        self._path["x_data"] = self._path["folder_root_dataset_seed"] / "x_data.npy"
+        self._path["y_data"] = self._path["folder_root_dataset_seed"] / "y_data.npy"
 
     def download(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def load(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def process(self):
         if self.df_processing_done():
@@ -46,7 +53,9 @@ class DatasetProcessor:
 
         torch.use_deterministic_algorithms(True)
         device = "cuda" if torch.cuda.is_available() else "cpu"
-        tokenizer = BertTokenizer.from_pretrained("bert-large-uncased", use_fast=True, device=device)
+        tokenizer = BertTokenizer.from_pretrained(
+            "bert-large-uncased", use_fast=True, device=device
+        )
         model = BertModel.from_pretrained("bert-large-uncased").to(device)
 
         for idx, line in self._df.iterrows():
@@ -54,10 +63,7 @@ class DatasetProcessor:
             if file_path.exists():
                 continue
 
-            random.seed(GLOBAL_SEED)
-            np.random.seed(GLOBAL_SEED)
-            torch.manual_seed(GLOBAL_SEED)
-
+            torch.manual_seed(self.seed)
             text_tokenized = tokenizer(
                 line["sentence"],
                 # TODO: study the max_length parameter
@@ -76,7 +82,7 @@ class DatasetProcessor:
             print(f"Processed {idx} of {len(self._df)}")
 
         embeddings = []
-        for idx, line in self._df.iterrows():
+        for idx, _ in self._df.iterrows():
             file_path = self._path["folder_sentence_embeddings"] / f"{idx}.npy"
             with open(file_path, "rb") as file:
                 embeddings.append(np.load(file))
@@ -94,21 +100,32 @@ class DatasetProcessor:
     def df_processing_done(self):
         return self._path["x_data"].exists() and self._path["y_data"].exists()
 
+
 class MovieReviewProcessor(DatasetProcessor):
     _folder_name = "movie_review"
     _url = "https://www.cs.cornell.edu/people/pabo/movie-review-data/review_polarity.tar.gz"
 
-    def __init__(self):
-        super().__init__()
-        self._path["file_path_compressed"] = self._path["folder_root_dataset"] / "review_polarity.tar.gz"
-        self._path["folder_path_uncompressed"] = self._path["folder_root_dataset"] / "review_polarity"
-        self._path["folder_dataset"] = self._path["folder_path_uncompressed"] / "txt_sentoken"
-        self._path["file_all_sentences"] = self._path["folder_root_dataset"] / "all_sentences.snappy.parquet"
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._path["file_path_compressed"] = (
+            self._path["folder_root_dataset"] / "review_polarity.tar.gz"
+        )
+        self._path["folder_path_uncompressed"] = (
+            self._path["folder_root_dataset"] / "review_polarity"
+        )
+        self._path["folder_dataset"] = (
+            self._path["folder_path_uncompressed"] / "txt_sentoken"
+        )
+        self._path["file_all_sentences"] = (
+            self._path["folder_root_dataset"] / "all_sentences.snappy.parquet"
+        )
 
     def download(self):
         if not self._path["file_path_compressed"].exists():
             # From https://stackoverflow.com/questions/7243750/download-file-from-web-in-python-3
-            with urllib.request.urlopen(self._url) as response, open(self._path["file_path_compressed"], 'wb') as file:
+            with urllib.request.urlopen(self._url) as response, open(
+                self._path["file_path_compressed"], "wb"
+            ) as file:
                 shutil.copyfileobj(response, file)
 
         if not self._path["folder_path_uncompressed"].exists():
@@ -134,32 +151,37 @@ class DatasetHandler:
 
     def __init__(self):
         self.dataset = {"original": {"x": None, "y": None}}
+        self.seed = None
 
-    def load(self, dataset_initials: str):
-        df_processor = self.datasets[dataset_initials]()
+    def load(self, dataset_name: str, seed: int):
+        self.seed = seed
+        df_processor = self.datasets[dataset_name](self.seed)
         if not df_processor.df_processing_done():
             df_processor.download()
             df_processor.load()
-        self.dataset["original"]["x"], self.dataset["original"]["y"] = df_processor.process()
+        (
+            self.dataset["original"]["x"],
+            self.dataset["original"]["y"],
+        ) = df_processor.process()
 
-    def split_train_valid_test(self, seed: int):
+    def split_train_valid_test(self):
         x_train_valid, x_test, y_train_valid, y_test = train_test_split(
             self.dataset["original"]["x"],
             self.dataset["original"]["y"],
             test_size=1 / 4,
-            random_state=seed,
+            random_state=self.seed,
             stratify=self.dataset["original"]["y"],
         )
         x_train, x_valid, y_train, y_valid = train_test_split(
             x_train_valid,
             y_train_valid,
             test_size=1 / 3,
-            random_state=seed,
+            random_state=self.seed,
             stratify=y_train_valid,
         )
         datasets = {
             "train": {"x": x_train, "y": y_train},
             "valid": {"x": x_valid, "y": y_valid},
-            "test": {"x": x_test, "y": y_test}
+            "test": {"x": x_test, "y": y_test},
         }
         self.dataset.update(datasets)

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+
 def get_path() -> dict:
     path = {
         "root": Path(__file__).parent.parent.parent,
@@ -8,5 +9,5 @@ def get_path() -> dict:
     path["data"] = path["root"] / "data"
     return path
 
-GLOBAL_SEED = 0
+
 N_REPETITIONS = 30
