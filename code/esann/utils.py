@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import numpy as np
+
 
 def get_path() -> dict:
     path = {
@@ -10,4 +12,9 @@ def get_path() -> dict:
     return path
 
 
+def transform_labels(y: np.array):
+    return np.where(y == 1, 1, 0)
+
+
 N_REPETITIONS = 30
+PATIENCE = 20

@@ -25,6 +25,7 @@ class Orchestrator:
                     print(f"Dataset: {dataset_name}")
                     print(f"Seed: {seed}")
                     print(f"Model: {model_name}")
+                    print("\n")
                     self.model_handler.load(model_name, self.df_handler.dataset, seed)
                     pred = self.model_handler.run()
                     metrics = self.metric_handler.get_metrics(
