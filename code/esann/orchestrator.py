@@ -1,6 +1,6 @@
-from .dataset_handler import DatasetHandler
-from .metric_handler import MetricHandler
-from .model_handler import ModelHandler
+from .dataset import DatasetHandler
+from .metric import MetricHandler
+from .model import ModelHandler
 from .utils import N_REPETITIONS
 
 
