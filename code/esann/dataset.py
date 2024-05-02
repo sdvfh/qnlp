@@ -5,10 +5,11 @@ import urllib.request
 import numpy as np
 import pandas as pd
 import torch
+from sklearn.decomposition import PCA
 from sklearn.model_selection import train_test_split
 from transformers import BertModel, BertTokenizer
 
-from .utils import get_path
+from .utils import N_FEATURES, WORD_COUNT_MIN, get_path
 
 
 class DatasetProcessor:
@@ -65,8 +66,7 @@ class DatasetProcessor:
             torch.manual_seed(self.seed)
             text_tokenized = tokenizer(
                 line["sentence"],
-                # TODO: study the max_length parameter
-                max_length=64,
+                max_length=512,
                 add_special_tokens=True,
                 truncation=True,
                 padding="max_length",
@@ -90,11 +90,12 @@ class DatasetProcessor:
         with open(self._path["x_data"], "wb") as file:
             np.save(file, embeddings)
 
+        labels = self._df["label"].values
         with open(self._path["y_data"], "wb") as file:
-            np.save(file, self._df["label"].values)
+            np.save(file, labels)
 
         self._df = pd.DataFrame()
-        return embeddings, self._df["label"].values
+        return embeddings, labels
 
     def df_processing_done(self):
         return self._path["x_data"].exists() and self._path["y_data"].exists()
@@ -140,6 +141,15 @@ class MovieReviewProcessor(DatasetProcessor):
                 for sentence in text:
                     df.append([sentence, label])
             self._df = pd.DataFrame(df, columns=["sentence", "label"])
+            self._df["word_count"] = (
+                self._df["sentence"]
+                .str.replace(r"[^\w\s]", "", regex=True)
+                .str.split()
+                .str.len()
+            )
+            self._df = self._df[self._df["word_count"] >= WORD_COUNT_MIN].reset_index(
+                drop=True
+            )
             self._df.to_parquet(self._path["file_all_sentences"])
         else:
             self._df = pd.read_parquet(self._path["file_all_sentences"])
@@ -163,24 +173,21 @@ class DatasetHandler:
             self.dataset["original"]["y"],
         ) = df_processor.process()
 
-    def split_train_valid_test(self):
-        x_train_valid, x_test, y_train_valid, y_test = train_test_split(
+    def split_train_test(self):
+        x_train, x_test, y_train, y_test = train_test_split(
             self.dataset["original"]["x"],
             self.dataset["original"]["y"],
             test_size=1 / 4,
             random_state=self.seed,
             stratify=self.dataset["original"]["y"],
         )
-        x_train, x_valid, y_train, y_valid = train_test_split(
-            x_train_valid,
-            y_train_valid,
-            test_size=1 / 3,
-            random_state=self.seed,
-            stratify=y_train_valid,
-        )
+
+        pca = PCA(n_components=N_FEATURES, random_state=self.seed)
+        x_train = pca.fit_transform(x_train)
+        x_test = pca.transform(x_test)
+
         datasets = {
             "train": {"x": x_train, "y": y_train},
-            "valid": {"x": x_valid, "y": y_valid},
             "test": {"x": x_test, "y": y_test},
         }
         self.dataset.update(datasets)

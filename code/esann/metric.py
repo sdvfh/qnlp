@@ -1,4 +1,5 @@
 import json
+from pprint import pprint
 
 from sklearn.metrics import (
     balanced_accuracy_score,
@@ -43,6 +44,7 @@ class MetricHandler:
             "seed": self.configs["seed"],
             "metrics": metrics,
         }
+        pprint(json_to_save)
         with open(self.path["file"], "w") as file:
             json.dump(json_to_save, file)
 

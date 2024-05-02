@@ -15,5 +15,4 @@ dependencies:
   - transformers=4.39.3
   - pennylane=0.35.1
   - py-xgboost-gpu=2.0.3
-  - pip:
-      - pytreebank==0.2.7
+  - matplotlib=3.8.4

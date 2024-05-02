@@ -16,5 +16,6 @@ def transform_labels(y: np.array):
     return np.where(y == 1, 1, 0)
 
 
+WORD_COUNT_MIN = 30
 N_REPETITIONS = 30
-PATIENCE = 20
+N_FEATURES = 8

@@ -21,7 +21,7 @@ class Orchestrator:
                     if self.metric_handler.metric_exists():
                         continue
                     self.df_handler.load(dataset_name, seed)
-                    self.df_handler.split_train_valid_test()
+                    self.df_handler.split_train_test()
                     print(f"Dataset: {dataset_name}")
                     print(f"Seed: {seed}")
                     print(f"Model: {model_name}")
