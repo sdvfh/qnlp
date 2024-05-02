@@ -78,7 +78,8 @@ class DatasetProcessor:
             sentence_embedding = outputs.last_hidden_state.mean(dim=1).cpu().numpy()
             with open(file_path, "wb") as file:
                 np.save(file, sentence_embedding)
-            print(f"Processed {idx} of {len(self._df)}")
+            if idx % 1000 == 0:
+                print(f"Processed {idx} of {len(self._df)}")
 
         embeddings = []
         for idx, _ in self._df.iterrows():

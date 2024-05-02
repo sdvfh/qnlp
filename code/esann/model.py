@@ -111,7 +111,7 @@ class XGboostModel(Model):
 
 
 class QuantumModel(Model):
-    _default_params = {"batch_size": 512, "n_epochs": 10}
+    _default_params = {"batch_size": 128, "n_epochs": 10}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
