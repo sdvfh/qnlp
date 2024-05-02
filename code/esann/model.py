@@ -92,7 +92,6 @@ class XGboostModel(Model):
         "device": "cuda" if torch.cuda.is_available() else "cpu",
         "tree_method": "hist",
         "objective": "binary:logistic",
-        "num_boost_round": 100,
     }
 
     def _get_hyper_params(self, seed):
@@ -105,17 +104,14 @@ class XGboostModel(Model):
     def _run(self, x_train, y_train, x_test, y_test, hyper_params: dict):
         train = xgb.DMatrix(x_train, label=transform_labels(y_train))
         test = xgb.DMatrix(x_test, label=transform_labels(y_test))
-        num_boost_round = hyper_params.pop("num_boost_round")
-        model = xgb.train(
-            hyper_params, train, num_boost_round=num_boost_round, evals=[(test, "test")]
-        )
+        model = xgb.train(hyper_params, train, evals=[(test, "test")])
         y_pred = model.predict(test)
         y_pred = np.where(y_pred > 0.5, 1, -1)
         return y_pred
 
 
 class QuantumModel(Model):
-    _default_params = {"batch_size": 64, "n_epochs": 10}
+    _default_params = {"batch_size": 512, "n_epochs": 10}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -273,14 +269,7 @@ def construct_parametric(tau, delta):
 
 class ModelHandler:
     models = {
-        "RF": RandomForestModel,
-        "SVMLinear": SVMLinearModel,
-        "SVMRBF": SVMRBFModel,
-        "SVMPoly": SVMPolyModel,
-        "LR": LogisticRegressionModel,
-        "XGB": XGboostModel,
         "CDQN": ContinuousNeuronQuantumModel,
-        "Dummy": DummyModel,
         "PCDQN_0.1_0.1": construct_parametric(tau=0.1, delta=np.pi / 2 * 0.1),
         "PCDQN_0.1_0.5": construct_parametric(tau=0.1, delta=np.pi / 2 * 0.5),
         "PCDQN_0.1_1.0": construct_parametric(tau=0.1, delta=np.pi / 2 * 1.0),
@@ -290,6 +279,13 @@ class ModelHandler:
         "PCDQN_1.0_0.1": construct_parametric(tau=1.0, delta=np.pi / 2 * 0.1),
         "PCDQN_1.0_0.5": construct_parametric(tau=1.0, delta=np.pi / 2 * 0.5),
         "PCDQN_1.0_1.0": construct_parametric(tau=1.0, delta=np.pi / 2 * 1.0),
+        "RF": RandomForestModel,
+        "SVMLinear": SVMLinearModel,
+        "SVMRBF": SVMRBFModel,
+        "SVMPoly": SVMPolyModel,
+        "LR": LogisticRegressionModel,
+        "XGB": XGboostModel,
+        "Dummy": DummyModel,
     }
 
     def __init__(self):

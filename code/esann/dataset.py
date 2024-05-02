@@ -66,7 +66,7 @@ class DatasetProcessor:
             torch.manual_seed(self.seed)
             text_tokenized = tokenizer(
                 line["sentence"],
-                max_length=512,
+                max_length=256,
                 add_special_tokens=True,
                 truncation=True,
                 padding="max_length",
