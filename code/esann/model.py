@@ -7,7 +7,7 @@ from pennylane import numpy as np
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import f1_score
+from sklearn.metrics import balanced_accuracy_score, f1_score
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.svm import SVC
 
@@ -26,7 +26,7 @@ class Model:
         y_train = self.datasets["train"]["y"]
         x_test = self.datasets["test"]["x"]
         y_test = self.datasets["test"]["y"]
-        scaler = MinMaxScaler()
+        scaler = MinMaxScaler(feature_range=(0, np.pi / 2))
         x_train = scaler.fit_transform(x_train)
         x_test = scaler.transform(x_test)
         if hyper_params is None:
@@ -111,7 +111,7 @@ class XGboostModel(Model):
 
 
 class QuantumModel(Model):
-    _default_params = {"batch_size": 128, "n_epochs": 10}
+    _default_params = {"batch_size": 16, "n_epochs": 30}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -122,50 +122,36 @@ class QuantumModel(Model):
 
     def _run(self, x_train, y_train, x_test, y_test, hyper_params: dict):
         n_qubits = self._get_n_qubits(x_train.shape[1])
-        n_work_qubits = n_qubits - 2
-        n_all_qubits = n_qubits + n_work_qubits + 1
-
-        batch_size = hyper_params["batch_size"]
+        n_all_qubits = n_qubits + 1
+        batch_size = len(x_train)
         n_epochs = hyper_params["n_epochs"]
-        device = "lightning.gpu" if torch.cuda.is_available() else "default.qubit"
+        device = "default.qubit"
         dev = qml.device(device, wires=n_all_qubits)
         opt = qml.AdamOptimizer(stepsize=0.1)
         weights, bias = self._get_initial_weights_bias(n_features=x_train.shape[1])
 
-        @qml.transforms.broadcast_expand
+        # @qml.transforms.broadcast_expand
         @qml.qnode(dev)
         def circuit(weights, x):
-            center_qubits = int(np.ceil((n_qubits + 1) / 2))
-            work_wires = list(range(center_qubits, center_qubits + n_work_qubits + 1))
-            work_wires.remove(n_qubits)
-
+            wires = list(range(n_qubits))
             target_wire = [n_qubits]
+            # weights_repeated = np.repeat(weights, len(x), axis=0)
+            weights_repeated = weights
 
-            control_wires = list(range(n_all_qubits))
-            control_wires.remove(n_qubits)
-            for i in work_wires:
-                if i == n_qubits:
-                    continue
-                control_wires.remove(i)
+            qml.broadcast(qml.Hadamard, wires=wires, pattern="single")
 
-            qml.broadcast(qml.Hadamard, wires=control_wires, pattern="single")
+            self._specific_ansatz(weights_repeated, x, wires, target_wire)
 
-            self._encode_vector(x, control_wires)
+            qml.broadcast(qml.Hadamard, wires=wires, pattern="single")
+            qml.broadcast(qml.X, wires=wires, pattern="single")
 
-            weights_repeated = np.repeat(weights, len(x), axis=0)
-            self._encode_vector(weights_repeated, control_wires)
-
-            qml.broadcast(qml.Hadamard, wires=control_wires, pattern="single")
-            qml.broadcast(qml.X, wires=control_wires, pattern="single")
-
-            qml.MultiControlledX(
-                wires=control_wires + target_wire, work_wires=work_wires
-            )
-            return qml.probs(wires=[n_qubits])
+            qml.MultiControlledX(wires=wires + target_wire)
+            return qml.probs(wires=target_wire)
 
         def cost(weights, bias, X, Y):
-            predictions = variational_classifier(weights, bias, X)
-            loss = log_loss(Y, predictions)
+            predictions = [variational_classifier(weights, bias, x) for x in X]
+            # loss = log_loss(Y, predictions)
+            loss = square_loss(Y, predictions)
             return loss
 
         def variational_classifier(weights, bias, x):
@@ -177,6 +163,9 @@ class QuantumModel(Model):
             loss = np.mean(-y_true * np.log(y_pred) - (1 - y_true) * np.log(1 - y_pred))
             return loss
 
+        def square_loss(labels, predictions):
+            return np.mean((labels - np.array(predictions)) ** 2)
+
         y_pred = None
         for it in range(n_epochs):
             old = time()
@@ -187,11 +176,13 @@ class QuantumModel(Model):
             (weights, bias, _, _), cost_value = opt.step_and_cost(
                 cost, weights, bias, x_batch, y_batch
             )
-            y_pred = np.sign(variational_classifier(weights, bias, x_test))
-            metric_value = f1_score(y_test, y_pred)
+            y_pred = [np.sign(variational_classifier(weights, bias, x)) for x in x_test]
+            f1 = f1_score(y_test, y_pred)
+            acc = balanced_accuracy_score(y_test, y_pred)
+            print(weights, bias)
             print(
-                "Iter: {:5d} | Cost: {:0.7f} | Score: {:0.4} | Time: {:0.4f}".format(
-                    it + 1, cost_value, metric_value, time() - old
+                "Iter: {:5d} | Cost: {:0.7f} | Accuracy: {:0.4f} | F1: {:0.4f} | Time: {:0.4f}".format(
+                    it + 1, cost_value, acc, f1, time() - old
                 )
             )
         return y_pred
@@ -200,12 +191,15 @@ class QuantumModel(Model):
     def _get_n_qubits(n_features):
         raise NotImplementedError
 
-    def _encode_vector(self, x, control_wires):
+    def _encode_vector(self, input_vector, control_wires):
+        raise NotImplementedError
+
+    def _specific_ansatz(self, weights, x, wires, target_wire):
         raise NotImplementedError
 
     def _get_initial_weights_bias(self, n_features):
         weights = np.random.uniform(
-            low=0, high=np.pi / 2, size=(1, n_features), requires_grad=True
+            low=0, high=np.pi / 2, size=(n_features,), requires_grad=True
         )
         bias = np.array(0.0, requires_grad=True)
         return weights, bias
@@ -224,9 +218,9 @@ class QuantumModel(Model):
 class ContinuousNeuronQuantumModel(QuantumModel):
     @staticmethod
     def _get_n_qubits(n_features):
-        return int(np.log2(n_features))
+        return int(np.ceil(np.log2(n_features)))
 
-    def _encode_vector(self, x, control_wires):
+    def _encode_vector(self, input_vector, control_wires):
         n_qubits = len(control_wires)
         n_feature = 1
         for n_qubit in range(n_qubits):
@@ -243,9 +237,14 @@ class ContinuousNeuronQuantumModel(QuantumModel):
                     control_values=control_value_binary,
                 )
                 ctrl_phase_shift(
-                    x[:, n_feature] - x[:, 0], wires=control_wires[n_qubit]
+                    input_vector[n_feature] - input_vector[0],
+                    wires=control_wires[n_qubit],
                 )
                 n_feature += 1
+
+    def _specific_ansatz(self, weights, x, wires, target_wire):
+        self._encode_vector(x, wires)
+        self._encode_vector(weights, wires)
 
 
 class ParametricNeuronQuantumModel(QuantumModel):
@@ -258,9 +257,14 @@ class ParametricNeuronQuantumModel(QuantumModel):
     def _get_n_qubits(n_features):
         return n_features
 
-    def _encode_vector(self, x, control_wires):
+    def _encode_vector(self, input_vector, control_wires):
         for i in range(len(control_wires)):
-            qml.PhaseShift(self._tau * x[:, i] + self._delta, i)
+            qml.PhaseShift(input_vector[i], i)
+
+    def _specific_ansatz(self, weights, x, wires, target_wire):
+        self._encode_vector(self._tau * x, wires)
+        self._encode_vector(-self._tau * weights, wires)
+        self._encode_vector(self._delta * np.ones(x.shape, requires_grad=False), wires)
 
 
 def construct_parametric(tau, delta):
@@ -269,7 +273,13 @@ def construct_parametric(tau, delta):
 
 class ModelHandler:
     models = {
-        "CDQN": ContinuousNeuronQuantumModel,
+        "Dummy": DummyModel,
+        "LR": LogisticRegressionModel,
+        "SVMLinear": SVMLinearModel,
+        "SVMRBF": SVMRBFModel,
+        "SVMPoly": SVMPolyModel,
+        "RF": RandomForestModel,
+        "XGB": XGboostModel,
         "PCDQN_0.1_0.1": construct_parametric(tau=0.1, delta=np.pi / 2 * 0.1),
         "PCDQN_0.1_0.5": construct_parametric(tau=0.1, delta=np.pi / 2 * 0.5),
         "PCDQN_0.1_1.0": construct_parametric(tau=0.1, delta=np.pi / 2 * 1.0),
@@ -279,13 +289,7 @@ class ModelHandler:
         "PCDQN_1.0_0.1": construct_parametric(tau=1.0, delta=np.pi / 2 * 0.1),
         "PCDQN_1.0_0.5": construct_parametric(tau=1.0, delta=np.pi / 2 * 0.5),
         "PCDQN_1.0_1.0": construct_parametric(tau=1.0, delta=np.pi / 2 * 1.0),
-        "RF": RandomForestModel,
-        "SVMLinear": SVMLinearModel,
-        "SVMRBF": SVMRBFModel,
-        "SVMPoly": SVMPolyModel,
-        "LR": LogisticRegressionModel,
-        "XGB": XGboostModel,
-        "Dummy": DummyModel,
+        "CDQN": ContinuousNeuronQuantumModel,
     }
 
     def __init__(self):

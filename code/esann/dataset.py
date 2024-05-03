@@ -2,10 +2,13 @@ import shutil
 import tarfile
 import urllib.request
 
+import nltk
 import numpy as np
 import pandas as pd
 import torch
+from nltk.stem import WordNetLemmatizer
 from sklearn.decomposition import PCA
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
 from transformers import BertModel, BertTokenizer
 
@@ -101,6 +104,9 @@ class DatasetProcessor:
     def df_processing_done(self):
         return self._path["x_data"].exists() and self._path["y_data"].exists()
 
+    def get_dataset(self):
+        return {"original": {"x": self._df["sentence"], "y": self._df["label"]}}
+
 
 class MovieReviewProcessor(DatasetProcessor):
     _folder_name = "movie_review"
@@ -156,8 +162,93 @@ class MovieReviewProcessor(DatasetProcessor):
             self._df = pd.read_parquet(self._path["file_all_sentences"])
 
 
+class LambeqProcessor(DatasetProcessor):
+    _folder_name = "lambeq"
+    _url = "https://raw.githubusercontent.com/CQCL/lambeq/main/docs/examples/datasets"
+    _files_names = {
+        "train": "mc_train_data.txt",
+        "dev": "mc_test_data.txt",
+        "test": "mc_dev_data.txt",
+    }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def download(self):
+        self._path["dataset_paths"] = {}
+        for dataset_type, file_name in self._files_names.items():
+            remote_file_path = self._url + "/" + file_name
+            local_file_path = self._path["folder_root_dataset"] / file_name
+            self._path["dataset_paths"][dataset_type] = local_file_path
+            if not local_file_path.exists():
+                with urllib.request.urlopen(remote_file_path) as response, open(
+                    local_file_path, "wb"
+                ) as file:
+                    shutil.copyfileobj(response, file)
+
+    def load(self):
+        datasets = {}
+        for dataset_type, file_path in self._path["dataset_paths"].items():
+            labels, sentences = self.read_data(file_path)
+            datasets[dataset_type] = pd.DataFrame(
+                {"sentence": sentences, "label": labels}
+            )
+        self._df = datasets
+
+    def process(self):
+        nltk.download("wordnet", quiet=True)
+        nltk.download("punkt", quiet=True)
+        wnl = WordNetLemmatizer()
+        for dataset_type in self._df:
+            self._df[dataset_type]["words"] = (
+                self._df[dataset_type]["sentence"]
+                .str.replace(r"[^\w\s]", "", regex=True)
+                .str.split(" ")
+            )
+            self._df[dataset_type]["words"] = self._df[dataset_type]["words"].apply(
+                lambda x: [wnl.lemmatize(word) for word in x]
+            )
+            self._df[dataset_type]["sentence"] = self._df[dataset_type]["words"].apply(
+                lambda x: " ".join(x)
+            )
+
+        train_dev = pd.concat([self._df["train"], self._df["dev"]])
+        tfidf_transformer = TfidfVectorizer(
+            stop_words="english", lowercase=True, max_features=16
+        )
+        x_train = tfidf_transformer.fit_transform(train_dev["sentence"]).toarray()
+        x_test = tfidf_transformer.transform(self._df["test"]["sentence"]).toarray()
+
+        y_train = np.int64(train_dev["label"].apply(lambda x: x[1]))
+        y_test = np.int64(self._df["test"]["label"].apply(lambda x: x[1]))
+
+        y_train = np.where(y_train == 1, 1, -1)
+        y_test = np.where(y_test == 1, 1, -1)
+
+        self._df = {
+            "train": {"x": x_train, "y": y_train},
+            "test": {"x": x_test, "y": y_test},
+        }
+
+    def get_dataset(self):
+        return self._df
+
+    @staticmethod
+    def read_data(filename):
+        labels, sentences = [], []
+        with open(filename) as f:
+            for line in f:
+                t = float(line[0])
+                labels.append([t, 1 - t])
+                sentences.append(line[1:].strip())
+        return labels, sentences
+
+
 class DatasetHandler:
-    datasets = {"MR": MovieReviewProcessor}
+    datasets = {
+        # "MR": MovieReviewProcessor,
+        "Lambeq": LambeqProcessor
+    }
 
     def __init__(self):
         self.dataset = {"original": {"x": None, "y": None}}
@@ -169,26 +260,25 @@ class DatasetHandler:
         if not df_processor.df_processing_done():
             df_processor.download()
             df_processor.load()
-        (
-            self.dataset["original"]["x"],
-            self.dataset["original"]["y"],
-        ) = df_processor.process()
+            df_processor.process()
+            self.dataset = df_processor.get_dataset()
 
     def split_train_test(self):
-        x_train, x_test, y_train, y_test = train_test_split(
-            self.dataset["original"]["x"],
-            self.dataset["original"]["y"],
-            test_size=1 / 4,
-            random_state=self.seed,
-            stratify=self.dataset["original"]["y"],
-        )
+        if not isinstance(self.dataset, dict):
+            x_train, x_test, y_train, y_test = train_test_split(
+                self.dataset["original"]["x"],
+                self.dataset["original"]["y"],
+                test_size=1 / 4,
+                random_state=self.seed,
+                stratify=self.dataset["original"]["y"],
+            )
 
-        pca = PCA(n_components=N_FEATURES, random_state=self.seed)
-        x_train = pca.fit_transform(x_train)
-        x_test = pca.transform(x_test)
+            pca = PCA(n_components=N_FEATURES, random_state=self.seed)
+            x_train = pca.fit_transform(x_train)
+            x_test = pca.transform(x_test)
 
-        datasets = {
-            "train": {"x": x_train, "y": y_train},
-            "test": {"x": x_test, "y": y_test},
-        }
-        self.dataset.update(datasets)
+            datasets = {
+                "train": {"x": x_train, "y": y_train},
+                "test": {"x": x_test, "y": y_test},
+            }
+            self.dataset.update(datasets)
