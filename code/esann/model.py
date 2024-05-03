@@ -179,7 +179,6 @@ class QuantumModel(Model):
             y_pred = [np.sign(variational_classifier(weights, bias, x)) for x in x_test]
             f1 = f1_score(y_test, y_pred)
             acc = balanced_accuracy_score(y_test, y_pred)
-            print(weights, bias)
             print(
                 "Iter: {:5d} | Cost: {:0.7f} | Accuracy: {:0.4f} | F1: {:0.4f} | Time: {:0.4f}".format(
                     it + 1, cost_value, acc, f1, time() - old
