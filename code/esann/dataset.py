@@ -212,15 +212,17 @@ class LambeqProcessor(DatasetProcessor):
                 lambda x: " ".join(x)
             )
 
-        train_dev = pd.concat([self._df["train"], self._df["dev"]])
+        train = self._df["train"]
+        test = pd.concat([self._df["dev"], self._df["test"]])
+
         tfidf_transformer = TfidfVectorizer(
             stop_words="english", lowercase=True, max_features=16
         )
-        x_train = tfidf_transformer.fit_transform(train_dev["sentence"]).toarray()
-        x_test = tfidf_transformer.transform(self._df["test"]["sentence"]).toarray()
+        x_train = tfidf_transformer.fit_transform(train["sentence"]).toarray()
+        x_test = tfidf_transformer.transform(test["sentence"]).toarray()
 
-        y_train = np.int64(train_dev["label"].apply(lambda x: x[1]))
-        y_test = np.int64(self._df["test"]["label"].apply(lambda x: x[1]))
+        y_train = np.int64(train["label"].apply(lambda x: x[1]))
+        y_test = np.int64(test["label"].apply(lambda x: x[1]))
 
         y_train = np.where(y_train == 1, 1, -1)
         y_test = np.where(y_test == 1, 1, -1)
