@@ -1,7 +1,6 @@
-name: ESANN-2024
+name: QNLP-2024
 channels:
   - conda-forge
-  - rapidsai
   - nvidia
   - pytorch
 dependencies:
@@ -17,3 +16,5 @@ dependencies:
   - py-xgboost-gpu=2.0.3
   - matplotlib=3.8.4
   - nltk=3.8.1
+  - pip:
+      - pytreebank==0.2.7

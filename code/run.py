@@ -1,4 +1,4 @@
-from esann.orchestrator import Orchestrator
+from qnlp.orchestrator import Orchestrator
 
 orchestrator = Orchestrator()
 orchestrator.run()
