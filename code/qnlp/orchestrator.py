@@ -32,3 +32,7 @@ class Orchestrator:
                         pred, self.df_handler.dataset["test"]["y"]
                     )
                     self.metric_handler.save_metrics(metrics)
+
+    def agg_metrics(self):
+        self.metric_handler = MetricHandler()
+        self.metric_handler.agg_metrics()
