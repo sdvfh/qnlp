@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import torch
 from nltk.stem import WordNetLemmatizer
+from pytreebank import load_sst
 from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
@@ -22,6 +23,7 @@ class DatasetProcessor:
         self.seed = seed
         self._path = get_path()
         self._df = pd.DataFrame()
+        self._data = {"embeddings": None, "labels": None}
 
         self._path["folder_root_dataset"] = self._path["data"] / self._folder_name
         self._path["folder_root_dataset"].mkdir(parents=True, exist_ok=True)
@@ -52,7 +54,8 @@ class DatasetProcessor:
                 x_data = np.load(file)
             with open(self._path["y_data"], "rb") as file:
                 y_data = np.load(file)
-            return x_data, y_data
+            self._data = {"embeddings": x_data, "labels": y_data}
+            return
 
         torch.use_deterministic_algorithms(True)
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -69,7 +72,7 @@ class DatasetProcessor:
             torch.manual_seed(self.seed)
             text_tokenized = tokenizer(
                 line["sentence"],
-                max_length=256,
+                max_length=128,
                 add_special_tokens=True,
                 truncation=True,
                 padding="max_length",
@@ -99,13 +102,14 @@ class DatasetProcessor:
             np.save(file, labels)
 
         self._df = pd.DataFrame()
+        self._data = {"embeddings": embeddings, "labels": labels}
         return embeddings, labels
 
     def df_processing_done(self):
         return self._path["x_data"].exists() and self._path["y_data"].exists()
 
     def get_dataset(self):
-        return {"original": {"x": self._df["sentence"], "y": self._df["label"]}}
+        return {"original": {"x": self._data["embeddings"], "y": self._data["labels"]}}
 
 
 class MovieReviewProcessor(DatasetProcessor):
@@ -246,10 +250,62 @@ class LambeqProcessor(DatasetProcessor):
         return labels, sentences
 
 
+class SST2Processor(DatasetProcessor):
+    _folder_name = "sst2"
+    _datasets = ["train", "test", "dev"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._path["file_labels_idx"] = (
+            self._path["folder_root_dataset"] / "labels_idx.snappy.parquet"
+        )
+
+    def download(self):
+        self._df = load_sst(self._path["folder_root_dataset"])
+
+    def load(self):
+        if not self._path["file_labels_idx"].exists():
+            dataset = []
+            for dataset_type in self._datasets:
+                for _, line in enumerate(self._df[dataset_type]):
+                    original_label, sentence = line.to_labeled_lines()[0]
+                    if original_label == 2:
+                        label = -2
+                    elif original_label < 2:
+                        label = -1
+                    else:
+                        label = 1
+                    dataset.append([sentence, original_label, label, dataset_type])
+            self._df = pd.DataFrame(
+                dataset, columns=["sentence", "original_label", "label", "dataset_type"]
+            )
+            self._df.to_parquet(self._path["file_labels_idx"])
+        else:
+            self._df = pd.read_parquet(self._path["file_labels_idx"])
+
+    def get_dataset(self):
+        labels_idx = pd.read_parquet(self._path["file_labels_idx"])
+        labels_idx = labels_idx[labels_idx["label"] != -2]
+        train_idx = labels_idx[labels_idx["dataset_type"] == "train"].index
+        test_idx = labels_idx[labels_idx["dataset_type"] == "test"].index
+        return {
+            "original": {"x": self._data["embeddings"], "y": self._data["labels"]},
+            "train": {
+                "x": self._data["embeddings"][train_idx],
+                "y": self._data["labels"][train_idx],
+            },
+            "test": {
+                "x": self._data["embeddings"][test_idx],
+                "y": self._data["labels"][test_idx],
+            },
+        }
+
+
 class DatasetHandler:
     datasets = {
         # "MR": MovieReviewProcessor,
-        "Lambeq": LambeqProcessor
+        # "Lambeq": LambeqProcessor
+        "SST-2": SST2Processor,
     }
 
     def __init__(self):
@@ -262,11 +318,16 @@ class DatasetHandler:
         if not df_processor.df_processing_done():
             df_processor.download()
             df_processor.load()
-            df_processor.process()
-            self.dataset = df_processor.get_dataset()
+        df_processor.process()
+        self.dataset = df_processor.get_dataset()
 
     def split_train_test(self):
-        if not isinstance(self.dataset, dict):
+        if isinstance(self.dataset, dict):
+            x_train = self.dataset["train"]["x"]
+            y_train = self.dataset["train"]["y"]
+            x_test = self.dataset["test"]["x"]
+            y_test = self.dataset["test"]["y"]
+        else:
             x_train, x_test, y_train, y_test = train_test_split(
                 self.dataset["original"]["x"],
                 self.dataset["original"]["y"],
@@ -275,12 +336,12 @@ class DatasetHandler:
                 stratify=self.dataset["original"]["y"],
             )
 
-            pca = PCA(n_components=N_FEATURES, random_state=self.seed)
-            x_train = pca.fit_transform(x_train)
-            x_test = pca.transform(x_test)
+        pca = PCA(n_components=N_FEATURES, random_state=self.seed)
+        x_train = pca.fit_transform(x_train)
+        x_test = pca.transform(x_test)
 
-            datasets = {
-                "train": {"x": x_train, "y": y_train},
-                "test": {"x": x_test, "y": y_test},
-            }
-            self.dataset.update(datasets)
+        datasets = {
+            "train": {"x": x_train, "y": y_train},
+            "test": {"x": x_test, "y": y_test},
+        }
+        self.dataset.update(datasets)

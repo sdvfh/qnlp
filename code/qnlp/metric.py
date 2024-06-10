@@ -1,6 +1,7 @@
 import json
 from pprint import pprint
 
+import pandas as pd
 from sklearn.metrics import (
     balanced_accuracy_score,
     f1_score,
@@ -50,3 +51,30 @@ class MetricHandler:
 
     def metric_exists(self):
         return self.path["file"].exists()
+
+    def agg_metrics(self):
+        metrics = []
+        for file in self.path["folder_root_metrics"].glob("*.json"):
+            with open(file, "r") as f:
+                metrics.append(json.load(f))
+        metrics = pd.DataFrame(metrics)
+        metrics["accuracy"] = metrics["metrics"].apply(lambda x: x["accuracy"])
+        metrics["f1"] = metrics["metrics"].apply(lambda x: x["f1"])
+        metrics["precision"] = metrics["metrics"].apply(lambda x: x["precision"])
+        metrics["recall"] = metrics["metrics"].apply(lambda x: x["recall"])
+        metrics = metrics.drop(columns=["metrics"])
+        metrics = (
+            metrics.groupby("model")
+            .agg(
+                {
+                    "seed": "count",
+                    "accuracy": ["mean", "std"],
+                    "f1": ["mean", "std"],
+                    "precision": ["mean", "std"],
+                    "recall": ["mean", "std"],
+                }
+            )
+            .sort_values(("accuracy", "mean"), ascending=False)
+        )
+        metrics.to_csv(self.path["folder_root_metrics"] / "agg_metrics.csv")
+        return metrics

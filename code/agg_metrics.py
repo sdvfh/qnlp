@@ -1,4 +1,4 @@
 from qnlp.orchestrator import Orchestrator
 
 orchestrator = Orchestrator()
-orchestrator.run()
+orchestrator.agg_metrics()
