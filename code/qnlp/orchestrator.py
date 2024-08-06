@@ -24,10 +24,12 @@ class QNLP:
         torch.manual_seed(42)
         random.seed(42)
         np.random.seed(42)
+
         self.testing = testing
         self._path = None
         self._df = None
         self._repetitions = 30
+        self._define_log()
         self._define_path()
 
     def run(self):
@@ -37,33 +39,49 @@ class QNLP:
         self._agg_metrics()
         print("End.")
 
+    def _define_log(self):
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s [%(levelname)s] %(message)s",
+            handlers=[logging.FileHandler("log.txt"), logging.StreamHandler()],
+        )
+        logging.basicConfig(filename="", encoding="utf-8", level=logging.DEBUG)
+
     def _define_path(self):
         self._path = {"root": Path(__file__).parent.parent.parent.resolve()}
         self._path["data"] = self._path["root"] / "data"
 
     def _get_data(self):
+        logging.info("Getting data.")
         self._df = load_sst(self._path["data"] / "sst")
 
     def _process_data(self):
+        logging.info("Processing data.")
         self._path["sst_processed"] = self._path["data"] / "sst_processed"
         device = "cuda" if torch.cuda.is_available() else "cpu"
         tokenizer = BertTokenizer.from_pretrained(
             "bert-large-uncased", use_fast=True, device=device
         )
         bert = BertModel.from_pretrained("bert-large-uncased").to(device)
-        for _ in range(self._repetitions):
+        for seed in range(self._repetitions):
             for dataset_name in self._df:
                 dataset = self._df[dataset_name]
                 dataset_path = self._path["sst_processed"] / dataset_name
                 dataset_path.mkdir(parents=True, exist_ok=True)
                 for i, sentence in enumerate(dataset):
-                    if self.testing and i == 100:
-                        break
                     sentence_path = dataset_path / f"{i}.pth"
                     if sentence_path.exists():
                         continue
                     else:
                         self._load_state()
+                    if self.testing and i == 25:
+                        break
+                    logging.info(
+                        "Seed: %d, Dataset: %s, Sentence number: %d",
+                        seed,
+                        dataset_name,
+                        i,
+                    )
                     label, sentence = sentence.to_labeled_lines()[0]
                     label = transform_binary_label(label)
                     embedding = self._get_embedding(tokenizer, bert, device, sentence)
