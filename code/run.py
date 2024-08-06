@@ -1,4 +1,5 @@
-from qnlp.orchestrator import Orchestrator
+from qnlp import QNLP
 
-orchestrator = Orchestrator()
-orchestrator.run()
+qnlp = QNLP()
+
+qnlp.run()

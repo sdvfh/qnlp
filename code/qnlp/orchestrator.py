@@ -1,38 +1,42 @@
-from .dataset import DatasetHandler
-from .metric import MetricHandler
-from .model import ModelHandler
-from .utils import N_REPETITIONS
+import random
+from pathlib import Path
+
+import numpy as np
+import torch
+from joblib import Parallel, delayed
+from pytreebank import load_sst
 
 
-class Orchestrator:
+class QNLP:
     def __init__(self):
-        self.df_handler = None
-        self.model_handler = None
-        self.metric_handler = None
+        torch.use_deterministic_algorithms(True)
+        torch.manual_seed(0)
+        random.seed(0)
+        np.random.seed(0)
+        self._path = None
+        self._df = None
+        self._repetitions = 30
+        self._define_path()
 
     def run(self):
-        self.df_handler = DatasetHandler()
-        self.model_handler = ModelHandler()
-        self.metric_handler = MetricHandler()
-        for dataset_name in self.df_handler.datasets:
-            for seed in range(N_REPETITIONS):
-                for model_name in self.model_handler.models:
-                    self.metric_handler.load(dataset_name, model_name, seed)
-                    if self.metric_handler.metric_exists():
-                        continue
-                    self.df_handler.load(dataset_name, seed)
-                    self.df_handler.split_train_test()
-                    print(f"Dataset: {dataset_name}")
-                    print(f"Seed: {seed}")
-                    print(f"Model: {model_name}")
-                    print("\n")
-                    self.model_handler.load(model_name, self.df_handler.dataset, seed)
-                    pred = self.model_handler.run()
-                    metrics = self.metric_handler.get_metrics(
-                        pred, self.df_handler.dataset["test"]["y"]
-                    )
-                    self.metric_handler.save_metrics(metrics)
+        self._get_data()
+        self._process_data()
+        self._run_models()
+        self._agg_metrics()
+        print("End.")
 
-    def agg_metrics(self):
-        self.metric_handler = MetricHandler()
-        self.metric_handler.agg_metrics()
+    def _define_path(self):
+        self._path = {"root": Path(__file__).parent.parent.parent.resolve()}
+        self._path["data"] = self._path["root"] / "data"
+
+    def _get_data(self):
+        self._df = load_sst(self._path["data"] / "sst")
+
+    def _process_data(self):
+        pass
+
+    def _run_models(self):
+        pass
+
+    def _agg_metrics(self):
+        pass
