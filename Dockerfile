@@ -14,10 +14,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code into the image
-# COPY . .
+COPY ./code ./code
 
-# Expose port 8000 (or any port your application needs)
-# EXPOSE 8000
-
-# Run the application (replace 'app.py' with your main application script)
-# CMD ["python", "app.py"]
+# Run the application
+CMD ["python", "code/run.py"]
