@@ -1,5 +1,5 @@
 from qnlp import QNLP
 
-qnlp = QNLP()
+qnlp = QNLP(testing=True)
 
 qnlp.run()
