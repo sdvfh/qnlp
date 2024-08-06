@@ -1,2 +1,3 @@
 joblib==1.4.2
 pytreebank==0.2.7
+transformers==4.43.4
