@@ -1,58 +1,86 @@
+import numpy as np
 from joblib import Parallel, delayed
+from sklearn.dummy import DummyClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
 
 
 class Model:
-    def __init__(self, df):
-        self._df = df
-        self._n_repetitions = len(df)
+    def __init__(self):
+        pass
 
-    def run(self):
+    def run(self, df):
         raise NotImplementedError
 
-    def _run(self):
+    def _run(self, dataset, seed):
         raise NotImplementedError
 
 
 class ClassicalModel(Model):
-    def run(self):
-        return Parallel(n_jobs=self._n_repetitions)(
-            delayed(self._run)(repetition) for repetition in range(self._n_repetitions)
+    def run(self, df):
+        n_repetitions = len(df)
+        # TODO: Change n_jobs to -1
+        return Parallel(n_jobs=n_repetitions)(
+            # return Parallel(n_jobs=1)(
+            delayed(self._run)(df[seed], seed)
+            for seed in range(n_repetitions)
         )
 
-    def _run(self):
-        pass
+    def _run(self, dataset, seed):
+        raise NotImplementedError
 
 
 class SKLearnModel(ClassicalModel):
-    pass
+    _model_template = None
+    _default_params = {}
+
+    def _run(self, dataset, seed):
+        if self._model_template is None:
+            raise NotImplementedError
+        params = self._default_params.copy()
+        params["random_state"] = seed
+        x_train = np.concatenate(
+            (dataset["train"]["embeddings"], dataset["dev"]["embeddings"])
+        )
+        y_train = np.concatenate((dataset["train"]["labels"], dataset["dev"]["labels"]))
+        x_test = dataset["test"]["embeddings"]
+        y_test = dataset["test"]["labels"]
+        model = self._model_template(**params)
+        model.fit(x_train, y_train)
+        y_pred = model.predict(x_test)
+        return (y_test, y_pred)
 
 
 class RandomForestModel(SKLearnModel):
-    pass
+    _model_template = RandomForestClassifier
+    _default_params = {"n_jobs": 1, "verbose": 1}
 
 
 class SVMModel(SKLearnModel):
-    pass
+    _model_template = SVC
 
 
 class SVMLinearModel(SVMModel):
-    pass
+    _default_params = {"kernel": "linear"}
 
 
 class SVMPolyModel(SVMModel):
-    pass
+    _default_params = {"kernel": "rbf"}
 
 
 class SVMRBFModel(SVMModel):
-    pass
+    _default_params = {"kernel": "poly"}
 
 
 class LogisticRegressionModel(SKLearnModel):
-    pass
+    _model_template = LogisticRegression
+    _default_params = {"max_iter": 1_000_000}
 
 
 class DummyModel(SKLearnModel):
-    pass
+    _model_template = DummyClassifier
+    _default_params = {"strategy": "stratified"}
 
 
 class XGBoostModel(ClassicalModel):
@@ -65,12 +93,12 @@ class HybridModel(Model):
 
 models = {
     "random_forest": RandomForestModel,
-    # "svm": SVMModel,
-    # "svm_linear": SVMLinearModel,
-    # "svm_poly": SVMPolyModel,
-    # "svm_rbf": SVMRBFModel,
-    # "logistic_regression": LogisticRegressionModel,
-    # "dummy": DummyModel,
+    "svm": SVMModel,
+    "svm_linear": SVMLinearModel,
+    "svm_poly": SVMPolyModel,
+    "svm_rbf": SVMRBFModel,
+    "logistic_regression": LogisticRegressionModel,
+    "dummy": DummyModel,
     # "xgboost": XGBoostModel,
     # "hybrid": HybridModel,
 }

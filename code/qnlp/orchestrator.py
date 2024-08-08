@@ -1,12 +1,20 @@
 import logging
 import random
 import shutil
+from itertools import combinations
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
 import torch
 from pytreebank import load_sst
+from scipy.stats import wilcoxon
+from sklearn.metrics import (
+    balanced_accuracy_score,
+    f1_score,
+    precision_score,
+    recall_score,
+)
 from sklearn.preprocessing import MinMaxScaler
 from transformers import BertModel, BertTokenizer
 
@@ -33,10 +41,7 @@ class QNLP:
         self.testing = testing
         self._path = None
 
-        if self.testing:
-            self._repetitions = 3
-        else:
-            self._repetitions = 30
+        self._repetitions = 30
         self._df = {repetition: {} for repetition in range(self._repetitions)}
         self._define_log()
         self._define_path()
@@ -57,6 +62,8 @@ class QNLP:
     def _define_path(self):
         self._path = {"root": Path(__file__).parent.parent.parent.resolve()}
         self._path["data"] = self._path["root"] / "data"
+        self._path["models"] = self._path["data"] / "models"
+        self._path["models"].mkdir(parents=True, exist_ok=True)
 
     def _process_data(self):
         logging.info("Getting data.")
@@ -79,6 +86,7 @@ class QNLP:
                 values_dataset_path = dataset_path / "values.pth"
                 if values_dataset_path.exists():
                     self._df[seed][dataset_name] = torch.load(values_dataset_path)
+                    continue
                 dataset_path.mkdir(parents=True, exist_ok=True)
                 for i, sentence in enumerate(dataset):
                     sentence_path = dataset_path / f"{i}.pth"
@@ -169,10 +177,67 @@ class QNLP:
         torch.save(values, values_dataset_path)
 
     def _run_models(self):
+        self._load_state()
         for model in models:
-            self._model = models[model](self._df)
-            self._model.run()
-        pass
+            model_path = self._path["models"] / f"{model}.pth"
+            if model_path.exists():
+                continue
+            logging.info("Running model %s.", model)
+            self._model = models[model]()
+            metrics = self._model.run(self._df)
+            self._save_state()
+            self._save_metrics(model, model_path, metrics)
+
+    @staticmethod
+    def _save_metrics(model, model_path, metrics):
+        results = []
+        for y_test, y_pred in metrics:
+            results.append(
+                {
+                    "accuracy": balanced_accuracy_score(y_test, y_pred),
+                    "f1": f1_score(y_test, y_pred),
+                    "precision": precision_score(y_test, y_pred),
+                    "recall": recall_score(y_test, y_pred),
+                }
+            )
+        results = pd.DataFrame(results)
+        results["model"] = model
+        torch.save(results, model_path)
 
     def _agg_metrics(self):
-        pass
+        agg_metrics_path = self._path["data"] / "agg_metrics.csv"
+        if agg_metrics_path.exists():
+            return
+        metrics = {}
+        for model in self._path["models"].glob("*.pth"):
+            model_name = model.stem
+            metrics[model_name] = torch.load(model)
+        metrics = pd.concat(metrics).sort_index()
+        agg_metrics = metrics.groupby("model").agg(["mean", "std"])
+        agg_metrics.to_csv(agg_metrics_path)
+        self._run_wilcoxon(metrics)
+
+    def _run_wilcoxon(self, metrics):
+        wilcoxon_results_path = self._path["data"] / "wilcoxon_results.csv"
+        models = metrics["model"].unique().tolist()
+        metrics_names = metrics.columns.tolist()
+        metrics_names.remove("model")
+        wilcoxon_results = []
+        for model_1, model_2 in combinations(models, 2):
+            for metric in metrics_names:
+                model_1_metrics = metrics.loc[metrics["model"] == model_1, metric]
+                model_2_metrics = metrics.loc[metrics["model"] == model_2, metric]
+                wilcoxon_value = wilcoxon(
+                    model_1_metrics, model_2_metrics, zero_method="zsplit"
+                )
+                wilcoxon_results.append(
+                    {
+                        "model_1": model_1,
+                        "model_2": model_2,
+                        "metric": metric,
+                        "wilcoxon_value": wilcoxon_value.statistic,
+                        "wilcoxon_pvalue": wilcoxon_value.pvalue,
+                    }
+                )
+        wilcoxon_results = pd.DataFrame(wilcoxon_results)
+        wilcoxon_results.to_csv(wilcoxon_results_path)
