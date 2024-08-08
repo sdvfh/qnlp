@@ -3,6 +3,7 @@ FROM pytorch/pytorch:2.4.0-cuda12.4-cudnn9-runtime
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
+ENV CUBLAS_WORKSPACE_CONFIG=:4096:8
 
 # Set the working directory
 WORKDIR /app
