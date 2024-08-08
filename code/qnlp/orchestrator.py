@@ -6,9 +6,11 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import torch
-from joblib import Parallel, delayed
 from pytreebank import load_sst
+from sklearn.preprocessing import MinMaxScaler
 from transformers import BertModel, BertTokenizer
+
+from .models import models
 
 
 def transform_binary_label(label):
@@ -35,6 +37,7 @@ class QNLP:
             self._repetitions = 3
         else:
             self._repetitions = 30
+        self._df = {repetition: {} for repetition in range(self._repetitions)}
         self._define_log()
         self._define_path()
 
@@ -69,11 +72,13 @@ class QNLP:
         bert = BertModel.from_pretrained("bert-large-uncased").to(device)
 
         for seed in range(self._repetitions):
+            scaler = MinMaxScaler(feature_range=(0, np.pi / 2))
             for dataset_name in df:
                 dataset = df[dataset_name]
                 dataset_path = self._path["sst_processed"] / str(seed) / dataset_name
-                if (dataset_path / "values.pth").exists():
-                    continue
+                values_dataset_path = dataset_path / "values.pth"
+                if values_dataset_path.exists():
+                    self._df[seed][dataset_name] = torch.load(values_dataset_path)
                 dataset_path.mkdir(parents=True, exist_ok=True)
                 for i, sentence in enumerate(dataset):
                     sentence_path = dataset_path / f"{i}.pth"
@@ -81,7 +86,7 @@ class QNLP:
                         continue
                     else:
                         self._load_state()
-                    if self.testing and i == 25:
+                    if self.testing and i == 100:
                         break
                     logging.info(
                         "Seed: %d, Dataset: %s, Sentence number: %d",
@@ -94,7 +99,7 @@ class QNLP:
                     embedding = self._get_embedding(tokenizer, bert, device, sentence)
                     self._save_embedding(sentence_path, sentence, label, embedding)
                     self._save_state()
-                self._agg_dataset(dataset_path)
+                self._agg_dataset(seed, scaler, dataset_path, values_dataset_path)
 
     def _get_embedding(self, tokenizer, bert, device, sentence):
         sentence_tokenized = tokenizer(
@@ -137,8 +142,9 @@ class QNLP:
         np.random.set_state(states["numpy_rng_state"])
         random.setstate(states["py_rng_state"])
 
-    def _agg_dataset(self, dataset_path):
+    def _agg_dataset(self, seed, scaler, dataset_path, values_dataset_path):
         sentences = dataset_path.glob("*.pth")
+        dataset_name = dataset_path.parts[-1]
         sentences = pd.DataFrame([torch.load(sentence) for sentence in sentences])
         to_delete = sentences[sentences["label"] == -1]
         logging.info(
@@ -149,15 +155,23 @@ class QNLP:
         sentences = sentences.drop(to_delete.index)
         labels = sentences["label"].values
         embeddings = np.row_stack(sentences["embedding"].values)
+        if dataset_name == "train":
+            embeddings = scaler.fit_transform(embeddings)
+        else:
+            embeddings = scaler.transform(embeddings)
         values = {
             "embeddings": embeddings,
             "labels": labels,
         }
         shutil.rmtree(dataset_path)
         dataset_path.mkdir()
-        torch.save(values, dataset_path / "values.pth")
+        self._df[seed][dataset_name] = values
+        torch.save(values, values_dataset_path)
 
     def _run_models(self):
+        for model in models:
+            self._model = models[model](self._df)
+            self._model.run()
         pass
 
     def _agg_metrics(self):
