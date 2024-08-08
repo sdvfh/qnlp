@@ -1,4 +1,6 @@
 import numpy as np
+import torch
+import xgboost as xgb
 from joblib import Parallel, delayed
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -84,7 +86,28 @@ class DummyModel(SKLearnModel):
 
 
 class XGBoostModel(ClassicalModel):
-    pass
+    _default_params = {
+        "device": "cuda" if torch.cuda.is_available() else "cpu",
+        "tree_method": "hist",
+        "objective": "binary:logistic",
+        "seed_per_iteration": True,
+    }
+
+    def _run(self, dataset, seed):
+        params = self._default_params.copy()
+        params["seed"] = seed
+        x_train = np.concatenate(
+            (dataset["train"]["embeddings"], dataset["dev"]["embeddings"])
+        )
+        y_train = np.concatenate((dataset["train"]["labels"], dataset["dev"]["labels"]))
+        x_test = dataset["test"]["embeddings"]
+        y_test = dataset["test"]["labels"]
+        train = xgb.DMatrix(x_train, label=y_train)
+        test = xgb.DMatrix(x_test, label=y_test)
+        model = xgb.train(params, train, evals=[(test, "test")])
+        y_pred = model.predict(test)
+        y_pred = (y_pred > 0.5).astype(int)
+        return (y_test, y_pred)
 
 
 class HybridModel(Model):
@@ -99,6 +122,6 @@ models = {
     "svm_rbf": SVMRBFModel,
     "logistic_regression": LogisticRegressionModel,
     "dummy": DummyModel,
-    # "xgboost": XGBoostModel,
+    "xgboost": XGBoostModel,
     # "hybrid": HybridModel,
 }
