@@ -33,6 +33,12 @@ class ClassicalModel(Model):
         raise NotImplementedError
 
 
+class HybridModel(Model):
+    def run(self, df):
+        # n_repetitions = len(df)
+        pass
+
+
 class SKLearnModel(ClassicalModel):
     _model_template = None
     _default_params = {}
@@ -51,7 +57,7 @@ class SKLearnModel(ClassicalModel):
         model = self._model_template(**params)
         model.fit(x_train, y_train)
         y_pred = model.predict(x_test)
-        return (y_test, y_pred)
+        return (seed, y_test, y_pred)
 
 
 class RandomForestModel(SKLearnModel):
@@ -107,11 +113,7 @@ class XGBoostModel(ClassicalModel):
         model = xgb.train(params, train, evals=[(test, "test")])
         y_pred = model.predict(test)
         y_pred = (y_pred > 0.5).astype(int)
-        return (y_test, y_pred)
-
-
-class HybridModel(Model):
-    pass
+        return (seed, y_test, y_pred)
 
 
 models = {

@@ -34,9 +34,6 @@ class QNLP:
     def __init__(self, testing=False):
         torch.use_deterministic_algorithms(True)
         torch.backends.cudnn.benchmark = False
-        torch.manual_seed(42)
-        random.seed(42)
-        np.random.seed(42)
 
         self.testing = testing
         self._path = None
@@ -79,6 +76,7 @@ class QNLP:
         bert = BertModel.from_pretrained("bert-large-uncased").to(device)
 
         for seed in range(self._repetitions):
+            self._set_seed(seed)
             scaler = MinMaxScaler(feature_range=(0, np.pi / 2))
             for dataset_name in df:
                 dataset = df[dataset_name]
@@ -108,6 +106,11 @@ class QNLP:
                     self._save_embedding(sentence_path, sentence, label, embedding)
                     self._save_state()
                 self._agg_dataset(seed, scaler, dataset_path, values_dataset_path)
+
+    def _set_seed(self, seed):
+        torch.manual_seed(seed)
+        random.seed(seed)
+        np.random.seed(seed)
 
     def _get_embedding(self, tokenizer, bert, device, sentence):
         sentence_tokenized = tokenizer(
@@ -190,17 +193,15 @@ class QNLP:
 
     @staticmethod
     def _save_metrics(model, model_path, metrics):
-        results = []
-        for y_test, y_pred in metrics:
-            results.append(
-                {
-                    "accuracy": balanced_accuracy_score(y_test, y_pred),
-                    "f1": f1_score(y_test, y_pred),
-                    "precision": precision_score(y_test, y_pred),
-                    "recall": recall_score(y_test, y_pred),
-                }
-            )
-        results = pd.DataFrame(results)
+        results = {}
+        for seed, y_test, y_pred in metrics:
+            results[seed] = {
+                "accuracy": balanced_accuracy_score(y_test, y_pred),
+                "f1": f1_score(y_test, y_pred),
+                "precision": precision_score(y_test, y_pred),
+                "recall": recall_score(y_test, y_pred),
+            }
+        results = pd.DataFrame(results).T
         results["model"] = model
         torch.save(results, model_path)
 
