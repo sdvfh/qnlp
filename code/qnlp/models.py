@@ -1,9 +1,11 @@
+import logging
+import pickle
 from functools import partial
 
 import pennylane as qml
 import torch
 import xgboost as xgb
-from hyperopt import fmin, hp, tpe
+from hyperopt import STATUS_OK, fmin, hp, tpe
 from hyperopt.fmin import generate_trials_to_calculate
 from joblib import Parallel, delayed
 from pennylane import numpy as np
@@ -19,31 +21,12 @@ class Model:
         self._path = path
         self._n_repetitions = n_repetitions
         self.testing = testing
-        self._n_epochs = 1 if self.testing else 100
 
     def run(self, df):
         raise NotImplementedError
 
     def _run(self, dataset, seed):
         raise NotImplementedError
-
-    # def _save_state(self):
-    #     states = {
-    #         "cpu_rng_state": torch.get_rng_state(),
-    #         "gpu_rng_state": torch.cuda.get_rng_state(),
-    #         "numpy_rng_state": np.random.get_state(),
-    #         "py_rng_state": random.getstate(),
-    #     }
-    #     torch.save(states, self._path["data"] / "states.pth")
-
-    # def _load_state(self):
-    #     if not (self._path["data"] / "states.pth").exists():
-    #         return
-    #     states = torch.load(self._path["data"] / "states.pth")
-    #     torch.set_rng_state(states["cpu_rng_state"])
-    #     torch.cuda.set_rng_state(states["gpu_rng_state"])
-    #     np.random.set_state(states["numpy_rng_state"])
-    #     random.setstate(states["py_rng_state"])
 
 
 class ClassicalModel(Model):
@@ -112,24 +95,59 @@ class HyBridTorchModel(torch.nn.Module):
 
 
 class HybridModel(Model):
+    def __init__(self, path, n_repetitions, testing):
+        super().__init__(path, n_repetitions, testing)
+        self._n_epochs = 1 if self.testing else 50
+        self._max_trials = 3 if self.testing else 50
+
     def run(self, df):
-        rng = np.random.default_rng(0)
+        if (self._path["hybrid"] / "hyperopt_rng.pth").exists():
+            rng_state = torch.load(self._path["hybrid"] / "hyperopt_rng.pth")
+            rng = np.random.default_rng()
+            rng.bit_generator.state = rng_state
+        else:
+            rng = np.random.default_rng(0)
+
         objective = self._get_objective(df)
         space = {
             "tau": hp.uniform("tau", -5, 5),
             "delta": hp.uniform("delta", 0, 2 * np.pi),
         }
-        trials = generate_trials_to_calculate([{"tau": 1, "delta": 0}])
-        max_trials = 2 if self.testing else 49
-        best_hypers = fmin(
-            fn=objective,
-            space=space,
-            trials=trials,
-            algo=partial(tpe.suggest, n_startup_jobs=20),
-            max_evals=max_trials,
-            trials_save_file=self._path["data"] / "model.hyperopt",
-            rstate=rng,
-        )
+        if (self._path["hybrid"] / "model.hyperopt").exists():
+            with open(self._path["hybrid"] / "model.hyperopt", "rb") as f:
+                trials = pickle.load(f)
+        else:
+            trials = generate_trials_to_calculate([{"tau": 1, "delta": 0}])
+
+        n_trials = len(trials.trials)
+        if n_trials < self._max_trials:
+            while n_trials < self._max_trials:
+                i = len(trials.trials)
+                best_hypers = fmin(
+                    fn=objective,
+                    space=space,
+                    trials=trials,
+                    algo=partial(tpe.suggest, n_startup_jobs=20),
+                    max_evals=i + 1,
+                    trials_save_file=self._path["hybrid"] / "model.hyperopt",
+                    rstate=rng,
+                )
+                torch.save(
+                    rng.bit_generator.state, self._path["hybrid"] / "hyperopt_rng.pth"
+                )
+                with open(self._path["hybrid"] / "model.hyperopt", "wb") as f:
+                    pickle.dump(trials, f)
+                n_trials = len(trials.trials)
+        else:
+            best_hypers = fmin(
+                fn=objective,
+                space=space,
+                trials=trials,
+                algo=partial(tpe.suggest, n_startup_jobs=20),
+                max_evals=self._max_trials,
+                trials_save_file=self._path["hybrid"] / "model.hyperopt",
+                rstate=rng,
+            )
         return Parallel(n_jobs=self._n_repetitions)(
             delayed(self._run_hybrid)(
                 df,
@@ -153,13 +171,23 @@ class HybridModel(Model):
                 )
                 for seed in range(self._n_repetitions)
             )
-            return -np.mean(results)
+            acc_list = []
+            for _, y_test, y_test_pred in results:
+                acc = balanced_accuracy_score(y_test, y_test_pred)
+                acc_list.append(acc)
+            return {
+                "loss": -np.mean(acc_list),
+                "status": STATUS_OK,
+                "raw_results": results,
+            }
 
         return objective
 
     def _run_hybrid(
         self, dataset, seed, tau, delta, n_qubits, batch, dataset_evaluation
     ):
+        torch.manual_seed(seed)
+        np.random.seed(seed)
         n_features = dataset["train"]["embeddings"].shape[1]
         model = HyBridTorchModel(n_features, n_qubits, tau, delta)
         opt = torch.optim.Adam(model.parameters())
@@ -188,7 +216,7 @@ class HybridModel(Model):
             opt.zero_grad()
             y_pred_batch = model(x_train_batch)
             loss = loss_fn(y_train_batch, y_pred_batch)
-            print(f"Epoch {i} - Loss: {loss.item()}")
+            logging.info("Seed %s - Epoch %s - Loss: %s", seed, i, loss.item())
             loss.backward()
             opt.step()
         x_test = torch.tensor(
@@ -200,11 +228,7 @@ class HybridModel(Model):
             .numpy()
         )
         y_test_pred = (model(x_test) > 0.5).detach().numpy()
-        if dataset_evaluation == "dev":
-            acc = balanced_accuracy_score(y_test, y_test_pred)
-            return acc
-        else:
-            return seed, y_test, y_test_pred
+        return seed, y_test, y_test_pred
 
 
 class SKLearnModel(ClassicalModel):
@@ -285,12 +309,12 @@ class XGBoostModel(ClassicalModel):
 
 
 models = {
-    # "random_forest": RandomForestModel,
-    # "svm_linear": SVMLinearModel,
-    # "svm_poly": SVMPolyModel,
-    # "svm_rbf": SVMRBFModel,
-    # "logistic_regression": LogisticRegressionModel,
-    # "dummy": DummyModel,
-    # "xgboost": XGBoostModel,
+    "random_forest": RandomForestModel,
+    "svm_linear": SVMLinearModel,
+    "svm_poly": SVMPolyModel,
+    "svm_rbf": SVMRBFModel,
+    "logistic_regression": LogisticRegressionModel,
+    "dummy": DummyModel,
+    "xgboost": XGBoostModel,
     "hybrid": HybridModel,
 }

@@ -36,7 +36,7 @@ class QNLP:
         self.testing = testing
         self._path = None
 
-        self._n_repetitions = 2 if self.testing else 30
+        self._n_repetitions = 30
         self._df = {}
         self._define_log()
         self._define_path()
