@@ -1,12 +1,10 @@
 import logging
-import random
-import shutil
 from itertools import combinations
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
 import torch
+from pennylane import numpy as np
 from pytreebank import load_sst
 from scipy.stats import wilcoxon
 from sklearn.metrics import (
@@ -38,7 +36,7 @@ class QNLP:
         self.testing = testing
         self._path = None
 
-        self._n_repetitions = 30
+        self._n_repetitions = 2 if self.testing else 30
         self._df = {}
         self._define_log()
         self._define_path()
@@ -63,6 +61,8 @@ class QNLP:
         self._path["models"].mkdir(parents=True, exist_ok=True)
         self._path["sst_processed"] = self._path["data"] / "sst_processed"
         self._path["sst_processed"].mkdir(parents=True, exist_ok=True)
+        self._path["hybrid"] = self._path["data"] / "hybrid"
+        self._path["hybrid"].mkdir(parents=True, exist_ok=True)
 
     def _process_data(self):
         if (self._path["sst_processed"] / "sst_processed.pth").exists():
@@ -147,7 +147,7 @@ class QNLP:
             if model_path.exists():
                 continue
             logging.info("Running model %s.", model)
-            self._model = models[model](self._n_repetitions)
+            self._model = models[model](self._path, self._n_repetitions, self.testing)
             metrics = self._model.run(self._df)
             self._save_metrics(model, model_path, metrics)
 
