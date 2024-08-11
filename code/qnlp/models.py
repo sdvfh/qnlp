@@ -9,8 +9,8 @@ from sklearn.svm import SVC
 
 
 class Model:
-    def __init__(self):
-        pass
+    def __init__(self, n_repetitions):
+        self._n_repetitions = n_repetitions
 
     def run(self, df):
         raise NotImplementedError
@@ -18,15 +18,29 @@ class Model:
     def _run(self, dataset, seed):
         raise NotImplementedError
 
+    # def _save_state(self):
+    #     states = {
+    #         "cpu_rng_state": torch.get_rng_state(),
+    #         "gpu_rng_state": torch.cuda.get_rng_state(),
+    #         "numpy_rng_state": np.random.get_state(),
+    #         "py_rng_state": random.getstate(),
+    #     }
+    #     torch.save(states, self._path["data"] / "states.pth")
+
+    # def _load_state(self):
+    #     if not (self._path["data"] / "states.pth").exists():
+    #         return
+    #     states = torch.load(self._path["data"] / "states.pth")
+    #     torch.set_rng_state(states["cpu_rng_state"])
+    #     torch.cuda.set_rng_state(states["gpu_rng_state"])
+    #     np.random.set_state(states["numpy_rng_state"])
+    #     random.setstate(states["py_rng_state"])
+
 
 class ClassicalModel(Model):
     def run(self, df):
-        n_repetitions = len(df)
-        # TODO: Change n_jobs to -1
-        return Parallel(n_jobs=n_repetitions)(
-            # return Parallel(n_jobs=1)(
-            delayed(self._run)(df[seed], seed)
-            for seed in range(n_repetitions)
+        return Parallel(n_jobs=self._n_repetitions)(
+            delayed(self._run)(df, seed) for seed in range(self._n_repetitions)
         )
 
     def _run(self, dataset, seed):
@@ -35,7 +49,6 @@ class ClassicalModel(Model):
 
 class HybridModel(Model):
     def run(self, df):
-        # n_repetitions = len(df)
         pass
 
 
@@ -57,7 +70,7 @@ class SKLearnModel(ClassicalModel):
         model = self._model_template(**params)
         model.fit(x_train, y_train)
         y_pred = model.predict(x_test)
-        return (seed, y_test, y_pred)
+        return seed, y_test, y_pred
 
 
 class RandomForestModel(SKLearnModel):
@@ -113,12 +126,11 @@ class XGBoostModel(ClassicalModel):
         model = xgb.train(params, train, evals=[(test, "test")])
         y_pred = model.predict(test)
         y_pred = (y_pred > 0.5).astype(int)
-        return (seed, y_test, y_pred)
+        return seed, y_test, y_pred
 
 
 models = {
     "random_forest": RandomForestModel,
-    "svm": SVMModel,
     "svm_linear": SVMLinearModel,
     "svm_poly": SVMPolyModel,
     "svm_rbf": SVMRBFModel,
