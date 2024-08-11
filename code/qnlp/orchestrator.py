@@ -53,6 +53,7 @@ class QNLP:
             format="%(asctime)s [%(levelname)s] %(message)s",
             handlers=[logging.FileHandler("log.txt"), logging.StreamHandler()],
         )
+        self._logging = logging.getLogger()
 
     def _define_path(self):
         self._path = {"root": Path(__file__).parent.parent.parent.resolve()}
@@ -68,11 +69,11 @@ class QNLP:
         if (self._path["sst_processed"] / "sst_processed.pth").exists():
             self._df = torch.load(self._path["sst_processed"] / "sst_processed.pth")
             return
-        logging.info("Getting data")
+        self._logging.info("Getting data")
         sst = load_sst(self._path["data"] / "sst")
         df = {}
 
-        logging.info("Processing data")
+        self._logging.info("Processing data")
         device = "cuda" if torch.cuda.is_available() else "cpu"
         tokenizer = BertTokenizer.from_pretrained(
             "bert-large-uncased", use_fast=True, device=device
@@ -80,7 +81,7 @@ class QNLP:
         bert = BertModel.from_pretrained("bert-large-uncased").to(device)
         for dataset_name in sst:
             dataset = sst[dataset_name]
-            logging.info("Dataset: %s", dataset_name)
+            self._logging.info("Dataset: %s", dataset_name)
             sentences, labels = self._get_sentences(dataset)
             embeddings = self._get_embeddings(tokenizer, bert, device, sentences)
             df[dataset_name] = {
@@ -88,6 +89,7 @@ class QNLP:
                 "labels": labels,
             }
         self._save_dataset(df)
+        self._df = df
 
     def _get_sentences(self, dataset):
         sentences = []
@@ -120,16 +122,16 @@ class QNLP:
     def _save_dataset(self, df):
         for dataset_name in df:
             dataset = df[dataset_name]
-            logging.info(
+            self._logging.info(
                 "The %s dataset has %d sentences", dataset_name, len(dataset["labels"])
             )
             to_remove = np.argwhere(dataset["labels"] == -1)
             dataset["labels"] = np.delete(dataset["labels"], to_remove)
             dataset["embeddings"] = np.delete(dataset["embeddings"], to_remove, axis=0)
-            logging.info(
+            self._logging.info(
                 "Deleting %d sentences in %s dataset", len(to_remove), dataset_name
             )
-            logging.info(
+            self._logging.info(
                 "The %s dataset has now %d sentences",
                 dataset_name,
                 len(dataset["labels"]),
@@ -146,7 +148,7 @@ class QNLP:
             model_path = self._path["models"] / f"{model}.pth"
             if model_path.exists():
                 continue
-            logging.info("Running model %s.", model)
+            self._logging.info("Running model %s.", model)
             self._model = models[model](self._path, self._n_repetitions, self.testing)
             metrics = self._model.run(self._df)
             self._save_metrics(model, model_path, metrics)

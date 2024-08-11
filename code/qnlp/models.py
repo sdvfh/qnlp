@@ -1,4 +1,3 @@
-import logging
 import pickle
 from functools import partial
 
@@ -37,6 +36,60 @@ class ClassicalModel(Model):
 
     def _run(self, dataset, seed):
         raise NotImplementedError
+
+
+class NNModel(ClassicalModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._n_epochs = 1 if self.testing else 50
+        self._max_trials = 3 if self.testing else 50
+        self._batch = 16
+
+
+class NNClassicalTorchModel(torch.nn.Module):
+    def __init__(self, n_features, n_qubits):
+        super().__init__()
+        self.layer_1 = torch.nn.Linear(n_features, n_qubits)
+        self.layer_2 = torch.nn.Linear(n_qubits, n_qubits)
+        self.layer_3 = torch.nn.Linear(n_qubits, 1)
+        self.activation = torch.sigmoid
+
+    def forward(self, x):
+        x = self.activation(self.layer_1(x)) * np.pi / 2
+        x = self.activation(self.layer_2(x))
+        x = self.activation(self.layer_3(x))
+        return x[:, 0]
+
+
+class NNClassicalModel(NNModel):
+    def _run(self, dataset, seed):
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        x_train = np.concatenate(
+            (dataset["train"]["embeddings"], dataset["dev"]["embeddings"])
+        )
+        x_train = torch.tensor(x_train, dtype=torch.float32, requires_grad=False)
+        y_train = np.concatenate((dataset["train"]["labels"], dataset["dev"]["labels"]))
+        y_train = torch.tensor(y_train, dtype=torch.float32, requires_grad=False)
+        x_test = dataset["test"]["embeddings"]
+        x_test = torch.tensor(x_test, dtype=torch.float32, requires_grad=False)
+        y_test = dataset["test"]["labels"]
+        model = NNClassicalTorchModel(x_train.shape[1], n_qubits=8)
+        opt = torch.optim.Adam(model.parameters())
+        loss_fn = torch.nn.MSELoss()
+        for i in range(self._n_epochs):
+            idx_batch = np.random.choice(len(x_train), self._batch)
+            x_train_batch = x_train[idx_batch,]
+            y_train_batch = y_train[idx_batch,]
+
+            opt.zero_grad()
+            y_pred_batch = model(x_train_batch)
+            loss = loss_fn(y_train_batch, y_pred_batch)
+            print(f"Seed {seed} - Epoch {i} - Loss: {loss.item()}")
+            loss.backward()
+            opt.step()
+        y_test_pred = (model(x_test) > 0.5).detach().numpy()
+        return seed, y_test, y_test_pred
 
 
 class HyBridTorchModel(torch.nn.Module):
@@ -94,12 +147,7 @@ class HyBridTorchModel(torch.nn.Module):
         return qml.probs(wires=target_wire)
 
 
-class HybridModel(Model):
-    def __init__(self, path, n_repetitions, testing):
-        super().__init__(path, n_repetitions, testing)
-        self._n_epochs = 1 if self.testing else 50
-        self._max_trials = 3 if self.testing else 50
-
+class HybridModel(NNModel):
     def run(self, df):
         if (self._path["hybrid"] / "hyperopt_rng.pth").exists():
             rng_state = torch.load(self._path["hybrid"] / "hyperopt_rng.pth")
@@ -155,7 +203,6 @@ class HybridModel(Model):
                 best_hypers["tau"],
                 best_hypers["delta"],
                 n_qubits=8,
-                batch=16,
                 dataset_evaluation="test",
             )
             for seed in range(self._n_repetitions)
@@ -167,7 +214,7 @@ class HybridModel(Model):
             delta = args["delta"]
             results = Parallel(n_jobs=self._n_repetitions)(
                 delayed(self._run_hybrid)(
-                    df, seed, tau, delta, n_qubits=8, batch=16, dataset_evaluation="dev"
+                    df, seed, tau, delta, n_qubits=8, dataset_evaluation="dev"
                 )
                 for seed in range(self._n_repetitions)
             )
@@ -183,9 +230,7 @@ class HybridModel(Model):
 
         return objective
 
-    def _run_hybrid(
-        self, dataset, seed, tau, delta, n_qubits, batch, dataset_evaluation
-    ):
+    def _run_hybrid(self, dataset, seed, tau, delta, n_qubits, dataset_evaluation):
         torch.manual_seed(seed)
         np.random.seed(seed)
         n_features = dataset["train"]["embeddings"].shape[1]
@@ -209,14 +254,14 @@ class HybridModel(Model):
             x_train = torch.tensor(x_train, dtype=torch.float32, requires_grad=False)
             y_train = torch.tensor(y_train, dtype=torch.float32, requires_grad=False)
         for i in range(self._n_epochs):
-            idx_batch = np.random.choice(len(x_train), batch)
+            idx_batch = np.random.choice(len(x_train), self._batch)
             x_train_batch = x_train[idx_batch,]
             y_train_batch = y_train[idx_batch,]
 
             opt.zero_grad()
             y_pred_batch = model(x_train_batch)
             loss = loss_fn(y_train_batch, y_pred_batch)
-            logging.info("Seed %s - Epoch %s - Loss: %s", seed, i, loss.item())
+            print(f"Seed {seed} - Epoch {i} - Loss: {loss.item()}")
             loss.backward()
             opt.step()
         x_test = torch.tensor(
@@ -316,5 +361,6 @@ models = {
     "logistic_regression": LogisticRegressionModel,
     "dummy": DummyModel,
     "xgboost": XGBoostModel,
-    "hybrid": HybridModel,
+    "nn_classical": NNClassicalModel,
+    "nn_hybrid": HybridModel,
 }
