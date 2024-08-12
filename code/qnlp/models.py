@@ -13,6 +13,9 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.svm import SVC
+from torch.nn import Linear, Module, MSELoss, Parameter
+from torch.optim import Adam
+from torch.utils.data import DataLoader
 
 
 class Model:
@@ -74,35 +77,43 @@ class NNClassicalModel(NNModel):
         x_test = dataset["test"]["embeddings"]
         x_test = torch.tensor(x_test, dtype=torch.float32, requires_grad=False)
         y_test = dataset["test"]["labels"]
+        train_loader = DataLoader(
+            zip((x_train, y_train), strict=True), batch_size=self._batch, shuffle=True
+        )
         model = NNClassicalTorchModel(x_train.shape[1], n_qubits=8)
-        opt = torch.optim.Adam(model.parameters())
-        loss_fn = torch.nn.MSELoss()
-        for i in range(self._n_epochs):
-            idx_batch = np.random.choice(len(x_train), self._batch)
-            x_train_batch = x_train[idx_batch,]
-            y_train_batch = y_train[idx_batch,]
+        opt = Adam(model.parameters())
+        loss_fn = MSELoss()
 
-            opt.zero_grad()
-            y_pred_batch = model(x_train_batch)
-            loss = loss_fn(y_train_batch, y_pred_batch)
-            print(f"Seed {seed} - Epoch {i} - Loss: {loss.item()}")
-            loss.backward()
-            opt.step()
+        for i in range(self._n_epochs):
+            for x_train_batch, y_train_batch in train_loader:
+                opt.zero_grad()
+                y_pred_batch = model(x_train_batch)
+                loss = loss_fn(y_train_batch, y_pred_batch)
+                print(f"Seed {seed} - Epoch {i} - Loss: {loss.item()}")
+                loss.backward()
+                opt.step()
+            with torch.no_grad():
+                y_pred = (model(x_test) > 0.5).detach().numpy()
+                acc = balanced_accuracy_score(y_test, y_pred)
+                print(f"Seed {seed} - Epoch {i} - Balanced Accuracy: {acc}")
         y_test_pred = (model(x_test) > 0.5).detach().numpy()
         return seed, y_test, y_test_pred
 
 
-class HyBridTorchModel(torch.nn.Module):
+class HyBridTorchModel(Module):
     def __init__(self, n_features, n_qubits, tau, delta):
         super().__init__()
         self._n_features = n_features
         self._n_qubits = n_qubits
-        self.layer_1 = torch.nn.Linear(self._n_features, self._n_qubits)
+        self.layer_1 = Linear(self._n_features, self._n_qubits)
         self.quantum_layers_0 = [
             self.create_quantum_layer(tau, delta) for _ in range(self._n_qubits)
         ]
+        self.weights_quantum_layers_0 = torch.nn.ParameterList(
+            [layer.weights for layer in self.quantum_layers_0]
+        )
         self.quantum_layers_1 = self.create_quantum_layer(tau, delta)
-        self.biases = torch.nn.Parameter(torch.zeros(n_qubits + 1), requires_grad=True)
+        self.biases = Parameter(torch.zeros(n_qubits + 1), requires_grad=True)
         self.classical_activation = torch.sigmoid
 
     def forward(self, x):
@@ -125,12 +136,14 @@ class HyBridTorchModel(torch.nn.Module):
         dev = qml.device("default.qubit", wires=self._n_qubits + 1)
         circuit = qml.qnode(dev, interface="torch", diff_method="backprop")(circuit)
         circuit = qml.transforms.broadcast_expand(circuit)
-        return qml.qnn.TorchLayer(
+        layer = qml.qnn.TorchLayer(
             circuit, weight_shapes, init_method={"weights": self.create_weight}
         )
+        return layer
 
     def create_weight(self, *args, **kwargs):
-        return torch.rand(size=(1, self._n_qubits)) * np.pi / 2
+        weight = torch.rand(size=(1, self._n_qubits)) * np.pi / 2
+        return weight
 
     @staticmethod
     def circuit(tau, delta, n_qubits, inputs, weights):
@@ -233,10 +246,7 @@ class HybridModel(NNModel):
     def _run_hybrid(self, dataset, seed, tau, delta, n_qubits, dataset_evaluation):
         torch.manual_seed(seed)
         np.random.seed(seed)
-        n_features = dataset["train"]["embeddings"].shape[1]
-        model = HyBridTorchModel(n_features, n_qubits, tau, delta)
-        opt = torch.optim.Adam(model.parameters())
-        loss_fn = torch.nn.MSELoss()
+
         if dataset_evaluation == "dev":
             x_train = torch.tensor(
                 dataset["train"]["embeddings"], dtype=torch.float32, requires_grad=False
@@ -253,17 +263,6 @@ class HybridModel(NNModel):
             )
             x_train = torch.tensor(x_train, dtype=torch.float32, requires_grad=False)
             y_train = torch.tensor(y_train, dtype=torch.float32, requires_grad=False)
-        for i in range(self._n_epochs):
-            idx_batch = np.random.choice(len(x_train), self._batch)
-            x_train_batch = x_train[idx_batch,]
-            y_train_batch = y_train[idx_batch,]
-
-            opt.zero_grad()
-            y_pred_batch = model(x_train_batch)
-            loss = loss_fn(y_train_batch, y_pred_batch)
-            print(f"Seed {seed} - Epoch {i} - Loss: {loss.item()}")
-            loss.backward()
-            opt.step()
         x_test = torch.tensor(
             dataset[dataset_evaluation]["embeddings"], dtype=torch.float32
         )
@@ -272,6 +271,28 @@ class HybridModel(NNModel):
             .detach()
             .numpy()
         )
+        n_features = dataset["train"]["embeddings"].shape[1]
+        model = HyBridTorchModel(n_features, n_qubits, tau, delta)
+        train_loader = DataLoader(
+            list(zip(x_train, y_train, strict=True)),
+            batch_size=self._batch,
+            shuffle=True,
+        )
+        opt = Adam(model.parameters())
+        loss_fn = MSELoss()
+
+        for i in range(self._n_epochs):
+            for x_train_batch, y_train_batch in train_loader:
+                opt.zero_grad()
+                y_pred_batch = model(x_train_batch)
+                loss = loss_fn(y_train_batch, y_pred_batch)
+                print(f"Seed {seed} - Epoch {i} - Loss: {loss.item()}")
+                loss.backward()
+                opt.step()
+            with torch.no_grad():
+                y_pred = (model(x_test) > 0.5).detach().numpy()
+                acc = balanced_accuracy_score(y_test, y_pred)
+                print(f"Seed {seed} - Epoch {i} - Balanced Accuracy: {acc}")
         y_test_pred = (model(x_test) > 0.5).detach().numpy()
         return seed, y_test, y_test_pred
 
