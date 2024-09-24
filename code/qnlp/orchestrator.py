@@ -66,6 +66,7 @@ class QNLP:
         self._path["hybrid"].mkdir(parents=True, exist_ok=True)
 
     def _process_data(self):
+        bert_model = "bert-base-cased"
         if (self._path["sst_processed"] / "sst_processed.pth").exists():
             self._df = torch.load(self._path["sst_processed"] / "sst_processed.pth")
             return
@@ -76,9 +77,9 @@ class QNLP:
         self._logging.info("Processing data")
         device = "cuda" if torch.cuda.is_available() else "cpu"
         tokenizer = BertTokenizer.from_pretrained(
-            "bert-large-uncased", use_fast=True, device=device
+            bert_model, use_fast=True, device=device
         )
-        bert = BertModel.from_pretrained("bert-large-uncased").to(device)
+        bert = BertModel.from_pretrained(bert_model).to(device)
         for dataset_name in sst:
             dataset = sst[dataset_name]
             self._logging.info("Dataset: %s", dataset_name)
