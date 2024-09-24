@@ -282,11 +282,13 @@ class HybridModel(NNModel):
         loss_fn = MSELoss()
 
         for i in range(self._n_epochs):
-            for x_train_batch, y_train_batch in train_loader:
+            print(f"Seed {seed} - Epoch {i}")
+            for o, (x_train_batch, y_train_batch) in enumerate(train_loader):
+                if o % 100 == 0:
+                    print(f"Seed {seed} - Epoch {i} - Batch {o}")
                 opt.zero_grad()
                 y_pred_batch = model(x_train_batch)
                 loss = loss_fn(y_train_batch, y_pred_batch)
-                print(f"Seed {seed} - Epoch {i} - Loss: {loss.item()}")
                 loss.backward()
                 opt.step()
             with torch.no_grad():
