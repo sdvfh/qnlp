@@ -1,8 +1,2 @@
-hyperopt==0.2.7
-joblib==1.4.2
-pandas==2.2.3
-pennylane==0.38.0
-pytreebank==0.2.7
-scikit-learn==1.5.2
-transformers==4.44.2
-xgboost==2.1.1
+lambeq==0.4.3
+setuptools==75.3.0
