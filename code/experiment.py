@@ -4,9 +4,8 @@ import numpy as np
 import numpy.random as npr
 from jax import grad, jit
 from jax import numpy as jnp
-from lambeq import AtomicType, BobcatParser, SpiderAnsatz
+from lambeq import AtomicType, BobcatParser, IQPAnsatz, RemoveCupsRewriter
 from lambeq.backend.numerical_backend import set_backend
-from lambeq.backend.tensor import Dim
 from sympy import default_sort_key
 
 set_backend("jax")
@@ -33,9 +32,9 @@ def sigmoid(x: jnp.ndarray) -> jnp.ndarray:
 def compute_loss(tensors: List[jnp.ndarray], circuits, targets) -> float:
     """Compute the cross-entropy loss over the training data."""
     np_circuits = [circuit.lambdify(*vocab)(*tensors) for circuit in circuits]
-    predictions = sigmoid(jnp.array([c.eval(dtype=float) for c in np_circuits]))
+    predictions = sigmoid(jnp.array([c.eval() for c in np_circuits]))
     loss = -jnp.mean(jnp.sum(targets * jnp.log(predictions + 1e-10), axis=1))
-    return loss
+    return jnp.float32(loss)
 
 
 def update_tensors(
@@ -51,21 +50,24 @@ def update_tensors(
 # Set random seed for reproducibility
 npr.seed(0)
 
-# Define atomic types
-N = AtomicType.NOUN
-S = AtomicType.SENTENCE
-
 # Read training and testing data
 train_data, train_targets = read_data("../data/lambeq/mc_train_data.txt")
 test_data, test_targets = read_data("../data/lambeq/mc_test_data.txt")
 
 # Parse sentences into diagrams
 parser = BobcatParser()
-train_diagrams = parser.sentences2diagrams(train_data)
-test_diagrams = parser.sentences2diagrams(test_data)
+raw_train_diagrams = parser.sentences2diagrams(train_data)
+raw_test_diagrams = parser.sentences2diagrams(test_data)
+
+remove_cups = RemoveCupsRewriter()
+
+train_diagrams = [remove_cups(diagram) for diagram in raw_train_diagrams]
+test_diagrams = [remove_cups(diagram) for diagram in raw_test_diagrams]
 
 # Create ansatz and circuits
-ansatz = SpiderAnsatz({N: Dim(2), S: Dim(2)})
+ansatz = IQPAnsatz(
+    {AtomicType.NOUN: 1, AtomicType.SENTENCE: 1}, n_layers=1, n_single_qubit_params=3
+)
 train_circuits = [ansatz(diagram) for diagram in train_diagrams]
 test_circuits = [ansatz(diagram) for diagram in test_diagrams]
 
@@ -76,7 +78,7 @@ vocab = sorted(
 )
 
 # Initialize tensors
-tensors = [jnp.array(npr.rand(symbol.size)) for symbol in vocab]
+tensors = [jnp.array(npr.uniform(low=0.0, high=2 * jnp.pi)) for symbol in vocab]
 
 # JIT-compile loss and gradient functions
 compiled_loss = jit(lambda t: compute_loss(t, train_circuits, train_targets))
@@ -98,8 +100,8 @@ for epoch in range(1, epochs + 1):
 
 # Evaluation on the test set
 np_test_circuits = [circuit.lambdify(*vocab)(*tensors) for circuit in test_circuits]
-test_predictions = sigmoid(jnp.array([c.eval(dtype=float) for c in np_test_circuits]))
-predicted_labels = jnp.argmax(test_predictions, axis=1)
+test_predictions = sigmoid(jnp.array([c.eval() for c in np_test_circuits]))
+predicted_labels = jnp.argmax(jnp.float32(test_predictions), axis=1)
 true_labels = jnp.argmax(test_targets, axis=1)
 accuracy = jnp.mean(predicted_labels == true_labels)
 
