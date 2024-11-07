@@ -1,6 +1,5 @@
 from typing import List, Tuple
 
-import numpy as np
 import numpy.random as npr
 from jax import grad, jit
 from jax import numpy as jnp
