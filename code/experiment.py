@@ -104,4 +104,4 @@ predicted_labels = jnp.argmax(jnp.float32(test_predictions), axis=1)
 true_labels = jnp.argmax(test_targets, axis=1)
 accuracy = jnp.mean(predicted_labels == true_labels)
 
-print(f"Accuracy on test set: {accuracy:.2%}")
+print(f"Accuracy on test set: {accuracy:.4f}")
