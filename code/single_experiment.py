@@ -18,6 +18,7 @@ print(sentence)
 # Create BobcatParser object
 parser = BobcatParser()
 diagram = parser.sentence2diagram(sentence)
+diagram.draw()
 
 # Define ansatz
 ansatz = StronglyEntanglingAnsatz(
@@ -39,7 +40,7 @@ print("Vocabulary with angles: ", dict_angles)
 
 # Lambeq to PennyLane circuit
 qml_circ = circuit.to_pennylane(
-    probabilities=False,
+    probabilities=True,
     backend_config=None,
     diff_method="best",
 )
@@ -52,4 +53,7 @@ qml_circ.initialise_concrete_params(dict_angles)
 qml_circ.draw()
 
 # Eval circuit
-qml_circ.eval()
+print("Lambeq eval: ", qml_circ.eval())
+
+# How to recreate the circuit
+# list(zip(qml_circ._ops, qml_circ._concrete_params, qml_circ._wires))
