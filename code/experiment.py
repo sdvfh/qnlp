@@ -1,107 +1,116 @@
 from typing import List, Tuple
 
-import numpy.random as npr
-from jax import grad, jit
-from jax import numpy as jnp
-from lambeq import AtomicType, BobcatParser, IQPAnsatz, RemoveCupsRewriter
-from lambeq.backend.numerical_backend import set_backend
-from sympy import default_sort_key
+import numpy as np
+import torch
+from lambeq import (
+    AtomicType,
+    BobcatParser,
+    Dataset,
+    IQPAnsatz,
+    PennyLaneModel,
+    RemoveCupsRewriter,
+)
+from lambeq.backend.tensor import Diagram
 
-set_backend("jax")
+
+class MyModel(PennyLaneModel):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    def forward(self, x: list[Diagram]) -> torch.Tensor:
+        evaluated_circuits = self.get_diagram_output(x)
+        return evaluated_circuits[:, 1]
 
 
-def read_data(filename: str) -> Tuple[List[str], jnp.ndarray]:
+def read_data(filename: str) -> Tuple[List[str], np.ndarray]:
     """Read data from a file and return sentences and targets."""
     data, targets = [], []
     with open(filename, "r") as file:
         for line in file:
             label = int(line[0])
             sentence = line[1:].strip()
-            target = jnp.array([label, 1 - label], dtype=jnp.float32)
+            # target = np.array([label, 1 - label], dtype=np.float32)
             data.append(sentence)
-            targets.append(target)
-    return data, jnp.array(targets)
+            targets.append(label)
+    return data, np.array(targets)
 
 
-def sigmoid(x: jnp.ndarray) -> jnp.ndarray:
-    """Apply the sigmoid function element-wise."""
-    return 1 / (1 + jnp.exp(-x))
+def accuracy(circs, labels):
+    predicted = model(circs)
+    return (
+        torch.round(torch.flatten(predicted)) == torch.DoubleTensor(labels)
+    ).sum().item() / len(circs)
 
 
-def compute_loss(tensors: List[jnp.ndarray], circuits, targets) -> float:
-    """Compute the cross-entropy loss over the training data."""
-    np_circuits = [circuit.lambdify(*vocab)(*tensors) for circuit in circuits]
-    predictions = sigmoid(jnp.array([c.eval() for c in np_circuits]))
-    loss = -jnp.mean(jnp.sum(targets * jnp.log(predictions + 1e-10), axis=1))
-    return jnp.float32(loss)
-
-
-def update_tensors(
-    tensors: List[jnp.ndarray], gradients: List[jnp.ndarray], learning_rate: float
-) -> List[jnp.ndarray]:
-    """Update tensors using the computed gradients."""
-    return [
-        tensor - learning_rate * grad
-        for tensor, grad in zip(tensors, gradients, strict=True)
-    ]
-
+# set constants
+BATCH_SIZE = 1
+EPOCHS = 5
 
 # Set random seed for reproducibility
-npr.seed(0)
+np.random.seed(0)
 
 # Read training and testing data
 train_data, train_targets = read_data("../data/lambeq/mc_train_data.txt")
+dev_data, dev_targets = read_data("../data/lambeq/mc_dev_data.txt")
 test_data, test_targets = read_data("../data/lambeq/mc_test_data.txt")
 
 # Parse sentences into diagrams
 parser = BobcatParser()
 raw_train_diagrams = parser.sentences2diagrams(train_data)
+raw_dev_diagrams = parser.sentences2diagrams(dev_data)
 raw_test_diagrams = parser.sentences2diagrams(test_data)
 
 remove_cups = RemoveCupsRewriter()
 
 train_diagrams = [remove_cups(diagram) for diagram in raw_train_diagrams]
+dev_diagrams = [remove_cups(diagram) for diagram in raw_dev_diagrams]
 test_diagrams = [remove_cups(diagram) for diagram in raw_test_diagrams]
 
-# Create ansatz and circuits
-ansatz = IQPAnsatz(
-    {AtomicType.NOUN: 1, AtomicType.SENTENCE: 1}, n_layers=1, n_single_qubit_params=3
-)
-train_circuits = [ansatz(diagram) for diagram in train_diagrams]
-test_circuits = [ansatz(diagram) for diagram in test_diagrams]
+for n_layer in [1, 2, 4, 8]:
+    # Create ansatz and circuits
+    ansatz = IQPAnsatz(
+        {AtomicType.NOUN: 1, AtomicType.SENTENCE: 1},
+        n_layers=n_layer,
+        n_single_qubit_params=3,
+    )
+    train_circuits = [ansatz(diagram) for diagram in train_diagrams]
+    dev_circuits = [ansatz(diagram) for diagram in dev_diagrams]
+    test_circuits = [ansatz(diagram) for diagram in test_diagrams]
 
-# Build vocabulary
-all_circuits = train_circuits + test_circuits
-vocab = sorted(
-    {sym for circ in all_circuits for sym in circ.free_symbols}, key=default_sort_key
-)
+    # Build vocabulary
+    all_circuits = train_circuits + dev_circuits + test_circuits
 
-# Initialize tensors
-tensors = [jnp.array(npr.uniform(low=0.0, high=2 * jnp.pi)) for symbol in vocab]
+    # Initialise our model by passing in the diagrams, so that we have trainable parameters for each token
+    model = MyModel.from_diagrams(all_circuits, probabilities=True, normalize=True)
+    model.initialise_weights()
+    model = model.double()
 
-# JIT-compile loss and gradient functions
-compiled_loss = jit(lambda t: compute_loss(t, train_circuits, train_targets))
-compiled_grad = jit(grad(compiled_loss))
+    # initialise datasets and optimizers as in PyTorch
+    train_pair_dataset = Dataset(train_circuits, train_targets, batch_size=BATCH_SIZE)
 
-# Training loop
-epochs = 90
-learning_rate = 1.0
-training_losses = []
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
 
-for epoch in range(1, epochs + 1):
-    gradients = compiled_grad(tensors)
-    tensors = update_tensors(tensors, gradients, learning_rate)
-    loss_value = float(compiled_loss(tensors))
-    training_losses.append(loss_value)
+    print()
+    print("Training with {} layers".format(n_layer))
 
-    if epoch % 10 == 0 or epoch == epochs:
-        print(f"Epoch {epoch} - Loss: {loss_value:.4f}")
+    for i in range(EPOCHS):
+        epoch_loss = 0
+        for circuits, labels in train_pair_dataset:
+            optimizer.zero_grad()
+            predicted = model(circuits)
+            # use BCELoss as our outputs are probabilities, and labels are binary
+            loss = torch.nn.functional.binary_cross_entropy(
+                torch.flatten(predicted), torch.DoubleTensor(labels)
+            )
+            epoch_loss += loss.item()
+            loss.backward()
+            optimizer.step()
 
-# Evaluation on the test set
-np_test_circuits = [circuit.lambdify(*vocab)(*tensors) for circuit in test_circuits]
-test_predictions = sigmoid(jnp.array([c.eval() for c in np_test_circuits]))
-predicted_labels = jnp.argmax(jnp.float32(test_predictions), axis=1)
-true_labels = jnp.argmax(test_targets, axis=1)
-accuracy = jnp.mean(predicted_labels == true_labels)
+        # evaluate on dev set every 1 epoch
+        dev_acc = accuracy(dev_circuits, dev_targets)
 
-print(f"Accuracy on test set: {accuracy:.4f}")
+        print("Epoch: {}".format(i))
+        print("Train loss: {}".format(epoch_loss))
+        print("Dev acc: {}".format(dev_acc))
+
+    print("Final test accuracy: {}".format(accuracy(test_circuits, test_targets)))
