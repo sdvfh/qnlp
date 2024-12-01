@@ -1,3 +1,10 @@
 # Pre-requisites
 
-Python=3.11.9
+Python=3.12.7
+
+# How to run
+
+```python
+cd code
+python experiment.py
+```
