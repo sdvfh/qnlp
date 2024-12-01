@@ -105,15 +105,13 @@ class Experiment:
         self._save_results()
 
     def _print_experiment_info(self):
-        print(
-            f"Dataset level: {self.level} | "
-            f"Ansatz name: {self.ansatz.__name__} | "
-            f"Dimension of noun: {self.dim_noun} | "
-            f"Dimension of sentence: {self.dim_sentence} | "
-            f"Dimension of prepositional phrase: {self.dim_prepositional_phrase} | "
-            f"Number of layers: {self.n_layer} | "
-            f"Seed: {self.seed}"
-        )
+        print(f"Dataset level: {self.level}")
+        print(f"Ansatz name: {self.ansatz.__name__}")
+        print(f"Dimension of noun: {self.dim_noun}")
+        print(f"Dimension of sentence: {self.dim_sentence}")
+        print(f"Dimension of prepositional phrase: {self.dim_prepositional_phrase}")
+        print(f"Number of layers: {self.n_layer}")
+        print(f"Seed: {self.seed}")
 
     def _set_seed(self):
         np.random.seed(self.seed)
@@ -233,7 +231,7 @@ class Experiment:
                 current_batch = f"{o + 1}/{total_batches}"
                 print(
                     f"Epoch: {i:^3} "
-                    f"| Batch: {current_batch:^4} "
+                    f"| Batch: {current_batch:^11} "
                     f"| Loss: {loss.item():^6.2f} "
                     f"| Time: {batch_final_time - batch_old_time:^6.2f}"
                 )
