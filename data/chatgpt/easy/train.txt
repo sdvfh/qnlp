@@ -1,0 +1,200 @@
+1 The joyful child laughed heartily .
+0 The sorrowful man wept alone .
+1 She was delighted by the good news .
+0 He felt depressed after the loss .
+1 They celebrated their remarkable victory .
+0 She mourned the passing of her friend .
+1 He smiled warmly at the compliment .
+0 The gloomy weather dampened his spirits .
+1 The audience applauded enthusiastically .
+0 She lamented over the missed opportunity .
+1 He was thrilled with his promotion .
+0 He grieved for the departed soul .
+1 She felt elated about the upcoming event .
+0 The melancholic music filled the hall .
+1 They rejoiced in their success .
+0 He was unhappy with the disappointing results .
+1 She was overjoyed to see her family .
+0 She felt despondent in the silent room .
+1 He chuckled at the amusing story .
+0 They were disheartened by the defeat .
+1 The festival brought cheer to the town .
+0 She sighed in utter despair .
+1 He felt content with his accomplishments .
+0 The somber news cast a shadow over them .
+1 They were pleased with the positive feedback .
+0 He brooded over his misfortunes .
+1 She beamed with satisfaction .
+0 The tragic incident left them in tears .
+1 He was ecstatic about the award .
+0 She felt forlorn after they left .
+1 They enjoyed the delightful performance .
+0 He was dejected by the rejection .
+1 She was glad to help her colleagues .
+0 The loss rendered him inconsolable .
+1 He grinned at the pleasant surprise .
+0 She was troubled by the unfortunate news .
+1 They relished the joyous occasion .
+0 He felt blue on the lonely evening .
+1 She exulted in her achievements .
+0 The farewell left them heartbroken .
+1 He felt upbeat about the future .
+0 She was crestfallen after the failure .
+1 They welcomed the guests cheerfully .
+0 He mourned the end of an era .
+1 She was radiant with happiness .
+0 The news cast a pall over the gathering .
+1 He was amused by the witty remark .
+0 She was saddened by the departure .
+1 They exulted in the festivities .
+0 He felt miserable in the isolation .
+1 She was contented with her life .
+0 The disappointment was palpable among them .
+1 He rejoiced at the sight of his home .
+0 She felt melancholy on the anniversary .
+1 They were gratified by the success .
+0 He was morose after the argument .
+1 She giggled at the humorous anecdote .
+0 The defeat left them crestfallen .
+1 He felt blissful under the sunshine .
+0 She wept over the lost memories .
+1 They were merry during the celebration .
+0 He was dispirited by the criticism .
+1 She rejoiced at the good fortune .
+0 The silence was filled with sorrow .
+1 He was jubilant over the victory .
+0 She felt dismayed at the outcome .
+1 They shared a moment of pure joy .
+0 He was forlorn in the empty house .
+1 She was delighted to receive the gift .
+0 The news left him desolate .
+1 He basked in the glory of success .
+0 She was sullen throughout the day .
+1 They enjoyed a pleasant evening together .
+0 He was anguished by the loss .
+1 She was thrilled to start her new job .
+0 The failure left them in despair .
+1 He felt cheerful on his birthday .
+0 She was mournful after the farewell .
+1 They appreciated the joyous atmosphere .
+0 He felt hopeless in the situation .
+1 She smiled at the thought of vacation .
+0 The tragedy weighed heavily on them .
+1 He was satisfied with the results .
+0 She was grief-stricken by the news .
+1 They were enthusiastic about the project .
+0 He felt a deep sadness within him .
+1 She laughed at the amusing incident .
+0 The failure made him disconsolate .
+1 He was glad to meet his old friends .
+0 She felt downcast after the meeting .
+1 They relished the pleasant weather .
+0 He was troubled by constant worries .
+1 She exuded happiness wherever she went .
+0 The loss left them heartbroken .
+1 He found joy in simple things .
+0 She was overwhelmed with sorrow .
+1 They celebrated the momentous occasion .
+0 He was somber during the ceremony .
+1 She felt uplifted by the song .
+0 The dreary day mirrored his mood .
+1 He cherished the happy memories .
+0 She felt miserable in the circumstances .
+1 They were gleeful at the news .
+0 He was disheartened by the setback .
+1 She found delight in her hobby .
+0 The ominous silence worried them .
+1 He enjoyed the cheerful company .
+0 She felt sorrow over the argument .
+1 They were elated with their discovery .
+0 He was in low spirits after the defeat .
+1 She was pleased with the progress .
+0 The unfortunate event saddened them .
+1 He laughed heartily at the joke .
+0 She was upset by the misunderstanding .
+1 They took pleasure in their work .
+0 He felt dismal in the empty room .
+1 She was exhilarated by the challenge .
+0 The rejection left him crestfallen .
+1 He was in high spirits today .
+0 She felt bleak about the prospects .
+1 They were content with their choices .
+0 He was distressed by the news report .
+1 She enjoyed the company of friends .
+0 The failure was a heavy blow to him .
+1 He was optimistic about the future .
+0 She was inconsolable after the incident .
+1 They relished the successful outcome .
+0 He felt wretched in his loneliness .
+1 She was happy to assist others .
+0 The atmosphere was filled with melancholy .
+1 He was delighted with the opportunity .
+0 She was burdened by her troubles .
+1 They found joy in the celebration .
+0 He was sorrowful about the decision .
+1 She smiled at the pleasant thought .
+0 The grim reality set in slowly .
+1 He appreciated the kind gesture .
+0 She felt hopeless after trying .
+1 They were satisfied with the agreement .
+0 He was dejected over the loss .
+1 She laughed at the playful remark .
+0 The sadness was evident in his eyes .
+1 He was glad to hear from her .
+0 She felt numb from the shock .
+1 They enjoyed the festive spirit .
+0 He was mournful during the service .
+1 She was thrilled to win the prize .
+0 The despair engulfed them completely .
+1 He felt cheerful in the morning sun .
+0 She was downhearted by the news .
+1 They appreciated the positive outcome .
+0 He was gloomy despite the celebration .
+1 She rejoiced at the reunion .
+0 The sadness lingered in the room .
+1 He was content with his situation .
+0 She felt heavy-hearted all day .
+1 They shared a laugh over dinner .
+0 He was burdened with grief .
+1 She was enthusiastic about learning .
+0 The mood was somber among them .
+1 He found happiness in simplicity .
+0 She was depressed by the failure .
+1 They were delighted by the performance .
+0 He felt sorrowful remembering the past .
+1 She smiled at the thought of success .
+0 The regret haunted him endlessly .
+1 He was exhilarated by the news .
+0 She was glum after the conversation .
+1 They enjoyed the lively discussion .
+0 He was melancholy during the holidays .
+1 She felt joyous on her wedding day .
+0 The loss weighed heavily on them .
+1 He was pleased with the achievement .
+0 She felt woe over the missed chance .
+1 They relished the moment together .
+0 He was distraught after the accident .
+1 She giggled at the amusing tale .
+0 The bleak outlook worried them .
+1 He was satisfied with his progress .
+0 She was tearful during the farewell .
+1 They celebrated the happy news .
+0 He felt despondent about the future .
+1 She was delighted to accept the offer .
+0 The silence was filled with sadness .
+1 He smiled at the familiar faces .
+0 She was heartbroken by the betrayal .
+1 They enjoyed the harmonious melody .
+0 He felt anguish over the mistake .
+1 She was eager to begin the journey .
+0 The sorrow was too much to bear .
+1 He chuckled at the clever response .
+0 She was overwhelmed with grief .
+1 They were grateful for the kindness .
+0 He felt empty after the departure .
+1 She was enthusiastic about the idea .
+0 The despair left them silent .
+1 He was joyous upon their arrival .
+0 She felt disheartened by the delay .
+1 They were thrilled with the discovery .
+0 He was somber thinking about the past .

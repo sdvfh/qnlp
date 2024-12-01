@@ -1,0 +1,50 @@
+1 She was excited to start the new project .
+0 He felt anxious about the unexpected changes .
+1 They were motivated by the success of the team .
+0 She was discouraged by the initial failures .
+1 He found joy in tackling the challenges .
+0 The uncertainty left them feeling uneasy .
+1 She was hopeful for a positive outcome .
+0 He felt overwhelmed by the responsibilities .
+1 They appreciated the innovative approach .
+0 She was unsettled by the sudden announcement .
+1 He was confident after the thorough preparation .
+0 The ambiguity of the situation caused confusion .
+1 She felt inspired by the success stories .
+0 He was disheartened by the lack of support .
+1 They embraced the opportunity for growth .
+0 She felt isolated in the unfamiliar environment .
+1 He was content with the progress achieved .
+0 The complex problem left them perplexed .
+1 She was enthusiastic about the new initiative .
+0 He felt restless waiting for the results .
+1 They found satisfaction in their accomplishments .
+0 She was anxious about meeting the deadline .
+1 He appreciated the constructive feedback .
+0 The unresolved issues made them uneasy .
+1 She was optimistic despite the challenges .
+0 He felt uncertain about the future direction .
+1 They were delighted with the performance of the team .
+0 She was apprehensive about the upcoming evaluation .
+1 He felt invigorated by the fresh ideas .
+0 The lack of clarity led to misunderstandings .
+1 She was pleased with the collaborative effort .
+0 He felt disconnected from the ongoing projects .
+1 They embraced the change with enthusiasm .
+0 She was discouraged by the setbacks .
+1 He was eager to implement the new strategy .
+0 The overwhelming workload caused stress .
+1 She found joy in the creative solutions .
+0 He felt uneasy during the intense discussion .
+1 They were motivated by the positive feedback .
+0 She was troubled by the conflicting priorities .
+1 He appreciated the dedication of the team .
+0 The uncertainty made them hesitant to act .
+1 She was confident in the effectiveness of the plan .
+0 He felt isolated while working remotely .
+1 They were fascinated by the innovative technology .
+0 She was disheartened by the negative response .
+1 He was enthusiastic about the potential impact .
+0 The ambiguity in roles caused confusion .
+1 She felt empowered by the leadership role .
+0 He was apprehensive facing the new challenges .
