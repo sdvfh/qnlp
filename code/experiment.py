@@ -50,35 +50,38 @@ EPOCHS = 5
 np.random.seed(0)
 
 # Read training and testing data
-train_data, train_targets = read_data("../data/lambeq/mc_train_data.txt")
-dev_data, dev_targets = read_data("../data/lambeq/mc_dev_data.txt")
-test_data, test_targets = read_data("../data/lambeq/mc_test_data.txt")
+train_data, train_targets = read_data("../data/chatgpt/easy_train.txt")
+test_data, test_targets = read_data("../data/chatgpt/easy_test.txt")
 
 # Parse sentences into diagrams
-parser = BobcatParser()
+parser = BobcatParser(device=0)
 raw_train_diagrams = parser.sentences2diagrams(train_data)
-raw_dev_diagrams = parser.sentences2diagrams(dev_data)
 raw_test_diagrams = parser.sentences2diagrams(test_data)
 
 remove_cups = RemoveCupsRewriter()
 
 train_diagrams = [remove_cups(diagram) for diagram in raw_train_diagrams]
-dev_diagrams = [remove_cups(diagram) for diagram in raw_dev_diagrams]
 test_diagrams = [remove_cups(diagram) for diagram in raw_test_diagrams]
 
-for n_layer in [1, 2, 4, 8]:
+info_layers = {}
+# for n_layer in [1, 2, 4, 8, 16, 32, 64]:
+for n_layer in [1]:
     # Create ansatz and circuits
     ansatz = IQPAnsatz(
-        {AtomicType.NOUN: 1, AtomicType.SENTENCE: 1},
+        {
+            AtomicType.NOUN: 1,
+            AtomicType.SENTENCE: 1,
+            AtomicType.PREPOSITIONAL_PHRASE: 1,
+        },
         n_layers=n_layer,
         n_single_qubit_params=3,
     )
     train_circuits = [ansatz(diagram) for diagram in train_diagrams]
-    dev_circuits = [ansatz(diagram) for diagram in dev_diagrams]
     test_circuits = [ansatz(diagram) for diagram in test_diagrams]
 
     # Build vocabulary
-    all_circuits = train_circuits + dev_circuits + test_circuits
+    # all_circuits = train_circuits + dev_circuits + test_circuits
+    all_circuits = train_circuits + test_circuits
 
     # Initialise our model by passing in the diagrams, so that we have trainable parameters for each token
     model = MyModel.from_diagrams(all_circuits, probabilities=True, normalize=True)
@@ -91,7 +94,7 @@ for n_layer in [1, 2, 4, 8]:
     optimizer = torch.optim.Adam(model.parameters(), lr=0.1)
 
     print()
-    print("Training with {} layers".format(n_layer))
+    print(f"Training with {n_layer} layers")
 
     for i in range(EPOCHS):
         epoch_loss = 0
@@ -107,10 +110,13 @@ for n_layer in [1, 2, 4, 8]:
             optimizer.step()
 
         # evaluate on dev set every 1 epoch
-        dev_acc = accuracy(dev_circuits, dev_targets)
+        # dev_acc = accuracy(dev_circuits, dev_targets)
 
-        print("Epoch: {}".format(i))
-        print("Train loss: {}".format(epoch_loss))
-        print("Dev acc: {}".format(dev_acc))
+        print(f"Epoch: {i:^3} | Train loss: {epoch_loss:.2f^6}")
 
-    print("Final test accuracy: {}".format(accuracy(test_circuits, test_targets)))
+    test_acc = accuracy(test_circuits, test_targets)
+    info_layers[n_layer] = test_acc
+
+    print(f"Final test accuracy: {test_acc}")
+
+print(info_layers)
