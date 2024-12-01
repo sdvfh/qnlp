@@ -46,6 +46,9 @@ class Experiment:
         dim_prepositional_phrase,
         n_layer,
         seed,
+        batch_size,
+        epochs,
+        n_repetitions,
     ):
         self.level = level
         self.ansatz = ansatz
@@ -65,6 +68,9 @@ class Experiment:
             "dim_prepositional_phrase": dim_prepositional_phrase,
             "n_layer": n_layer,
             "seed": seed,
+            "batch_size": batch_size,
+            "epochs": epochs,
+            "n_repetitions": n_repetitions,
             "device": None,
             "n_qubits_circuits": None,
             "epoch_infos": None,
@@ -76,7 +82,8 @@ class Experiment:
             f"{level}_{ansatz.__name__}_"
             f"{dim_noun}_{dim_sentence}_"
             f"{dim_prepositional_phrase}_"
-            f"{n_layer}_{seed}"
+            f"{n_layer}_{seed}_{batch_size}_"
+            f"{epochs}_{n_repetitions}"
         )
 
     def run(self):
@@ -307,5 +314,8 @@ for (
             dim_prepositional_phrase=dim_prepositional_phrase,
             n_layer=n_layer,
             seed=seed,
+            batch_size=BATCH_SIZE,
+            epochs=EPOCHS,
+            n_repetitions=N_REPETITIONS,
         )
         experiment.run()
