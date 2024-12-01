@@ -277,7 +277,7 @@ class Experiment:
 
 
 BATCH_SIZE = 20
-EPOCHS = 200
+EPOCHS = 100
 N_REPETITIONS = 30
 
 levels = ["easy", "medium", "hard"]
