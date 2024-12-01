@@ -1,3 +1,4 @@
+from time import time
 from typing import List, Tuple
 
 import numpy as np
@@ -45,13 +46,14 @@ def accuracy(circs, labels):
 # set constants
 BATCH_SIZE = 1
 EPOCHS = 5
+DEVICE = "cuda"
 
 # Set random seed for reproducibility
 np.random.seed(0)
 
 # Read training and testing data
-train_data, train_targets = read_data("../data/chatgpt/easy_train.txt")
-test_data, test_targets = read_data("../data/chatgpt/easy_test.txt")
+train_data, train_targets = read_data("../data/chatgpt/hard/train.txt")
+test_data, test_targets = read_data("../data/chatgpt/hard/test.txt")
 
 # Parse sentences into diagrams
 parser = BobcatParser(device=0)
@@ -86,7 +88,7 @@ for n_layer in [1]:
     # Initialise our model by passing in the diagrams, so that we have trainable parameters for each token
     model = MyModel.from_diagrams(all_circuits, probabilities=True, normalize=True)
     model.initialise_weights()
-    model = model.double()
+    model = model.double().to(DEVICE)
 
     # initialise datasets and optimizers as in PyTorch
     train_pair_dataset = Dataset(train_circuits, train_targets, batch_size=BATCH_SIZE)
@@ -98,21 +100,25 @@ for n_layer in [1]:
 
     for i in range(EPOCHS):
         epoch_loss = 0
+        old_time = time()
         for circuits, labels in train_pair_dataset:
             optimizer.zero_grad()
             predicted = model(circuits)
+            labels = torch.DoubleTensor(labels).to(DEVICE)
             # use BCELoss as our outputs are probabilities, and labels are binary
             loss = torch.nn.functional.binary_cross_entropy(
-                torch.flatten(predicted), torch.DoubleTensor(labels)
+                torch.flatten(predicted), labels
             )
             epoch_loss += loss.item()
             loss.backward()
             optimizer.step()
+        final_time = time()
 
         # evaluate on dev set every 1 epoch
         # dev_acc = accuracy(dev_circuits, dev_targets)
-
-        print(f"Epoch: {i:^3} | Train loss: {epoch_loss:.2f^6}")
+        print(
+            f"Epoch: {i:^3} | Train loss: {epoch_loss:^6.2f} | Time: {final_time - old_time:^6.2f}"
+        )
 
     test_acc = accuracy(test_circuits, test_targets)
     info_layers[n_layer] = test_acc
