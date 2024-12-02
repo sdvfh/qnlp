@@ -319,7 +319,7 @@ anstaze = [
     Sim15Ansatz,
 ]
 dim_noun = dim_sentence = dim_prepositional_phrase = list(range(1, 6))
-n_layers = [1, 2, 4, 8, 16, 32, 64]
+n_layers = [1, 2, 4, 8]
 
 experiments = product(
     levels,
