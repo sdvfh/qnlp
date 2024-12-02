@@ -1,3 +1,4 @@
+import argparse
 import gzip
 import pickle
 from itertools import product
@@ -7,6 +8,7 @@ from typing import List, Tuple
 
 import numpy as np
 import torch
+from joblib import Parallel, delayed
 from lambeq import (
     AtomicType,
     BobcatParser,
@@ -276,6 +278,34 @@ class Experiment:
             pickle.dump(self._other_infos, file)
 
 
+def run_experiments(
+    level,
+    ansatz,
+    dim_noun,
+    dim_sentence,
+    dim_prepositional_phrase,
+    n_layer,
+    seed,
+):
+    experiment = Experiment(
+        level=level,
+        ansatz=ansatz,
+        dim_noun=dim_noun,
+        dim_sentence=dim_sentence,
+        dim_prepositional_phrase=dim_prepositional_phrase,
+        n_layer=n_layer,
+        seed=seed,
+        batch_size=BATCH_SIZE,
+        epochs=EPOCHS,
+        n_repetitions=N_REPETITIONS,
+    )
+    experiment.run()
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-n_jobs", action="store")
+args = parser.parse_args()
+
 BATCH_SIZE = 20
 EPOCHS = 100
 N_REPETITIONS = 30
@@ -292,28 +322,15 @@ dim_noun = dim_sentence = dim_prepositional_phrase = list(range(1, 6))
 n_layers = [1, 2, 4, 8, 16, 32, 64]
 
 experiments = product(
-    levels, anstaze, dim_noun, dim_sentence, dim_prepositional_phrase, n_layers
-)
-
-for (
-    level,
-    ansatz,
+    levels,
+    anstaze,
     dim_noun,
     dim_sentence,
     dim_prepositional_phrase,
-    n_layer,
-) in experiments:
-    for seed in range(N_REPETITIONS):
-        experiment = Experiment(
-            level=level,
-            ansatz=ansatz,
-            dim_noun=dim_noun,
-            dim_sentence=dim_sentence,
-            dim_prepositional_phrase=dim_prepositional_phrase,
-            n_layer=n_layer,
-            seed=seed,
-            batch_size=BATCH_SIZE,
-            epochs=EPOCHS,
-            n_repetitions=N_REPETITIONS,
-        )
-        experiment.run()
+    n_layers,
+    range(N_REPETITIONS),
+)
+
+Parallel(n_jobs=int(args.n_jobs))(
+    delayed(run_experiments)(*experiment) for experiment in experiments
+)
