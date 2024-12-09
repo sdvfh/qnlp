@@ -1,4 +1,5 @@
 import argparse
+import gc
 import gzip
 import pickle
 from itertools import product
@@ -300,6 +301,8 @@ def run_experiments(
         n_repetitions=N_REPETITIONS,
     )
     experiment.run()
+    del experiment
+    gc.collect()
 
 
 parser = argparse.ArgumentParser()
@@ -318,7 +321,8 @@ anstaze = [
     Sim14Ansatz,
     Sim15Ansatz,
 ]
-dim_noun = dim_sentence = dim_prepositional_phrase = list(range(1, 6))
+dim_noun = dim_sentence = list(range(1, 3))
+dim_prepositional_phrase = [1]
 n_layers = [1, 2, 4, 8]
 
 experiments = product(
@@ -331,6 +335,6 @@ experiments = product(
     range(N_REPETITIONS),
 )
 
-Parallel(n_jobs=int(args.n_jobs))(
+Parallel(n_jobs=int(args.n_jobs), backend="multiprocessing")(
     delayed(run_experiments)(*experiment) for experiment in experiments
 )
