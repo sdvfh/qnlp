@@ -18,4 +18,26 @@ def read_results() -> pd.DataFrame:
     return pd.DataFrame(results_list)
 
 
+def aggregate_metrics(experiment: list) -> pd.Series:
+    """Aggregates the metrics of a DataFrame row."""
+    return pd.DataFrame(experiment).agg(["mean", "std"]).stack()
+
+
 results = read_results()
+agg_results = results.groupby(
+    [
+        "level",
+        "ansatz",
+        "dim_prepositional_phrase",
+        "dim_noun",
+        "dim_sentence",
+        "n_layer",
+        "batch_size",
+        "epochs",
+        "n_repetitions",
+        "device",
+    ]
+).agg(list)
+agg_results = agg_results[agg_results["seed"].apply(len) == 30]
+metrics = agg_results["metrics"].apply(aggregate_metrics)
+agg_results = pd.concat((agg_results, metrics), axis=1)
