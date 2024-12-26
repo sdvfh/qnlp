@@ -194,6 +194,8 @@ class Experiment:
         else:
             device = "cpu"
 
+        device = "cpu"
+
         print(f"Device: {device}")
         self._other_infos["device"] = device
         self._other_infos["n_qubits_circuits"] = n_qubits_circuits
@@ -288,6 +290,8 @@ def run_experiments(
     n_layer,
     seed,
 ):
+    if dim_sentence == dim_noun == 2:
+        return
     experiment = Experiment(
         level=level,
         ansatz=ansatz,
@@ -316,14 +320,14 @@ N_REPETITIONS = 30
 levels = ["easy", "medium", "hard"]
 anstaze = [
     IQPAnsatz,
-    StronglyEntanglingAnsatz,
+    # StronglyEntanglingAnsatz,
     Sim4Ansatz,
-    Sim14Ansatz,
-    Sim15Ansatz,
+    # Sim14Ansatz,
+    # Sim15Ansatz,
 ]
-dim_noun = dim_sentence = list(range(1, 3))
+dim_noun = dim_sentence = [1, 2]
 dim_prepositional_phrase = [1]
-n_layers = [1, 2, 4, 8]
+n_layers = [1, 2]
 
 experiments = product(
     levels,
