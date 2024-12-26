@@ -122,13 +122,13 @@ class Experiment:
 
     def _read_data(self):
         for dataset in ["train", "test"]:
-            data, targets = self._read_files(
+            data, targets = self.read_files(
                 f"../data/chatgpt/{self.level}/{dataset}.txt"
             )
             self._datasets[dataset] = {"data": data, "targets": targets}
 
     @staticmethod
-    def _read_files(filename: str) -> Tuple[List[str], np.ndarray]:
+    def read_files(filename: str) -> Tuple[List[str], np.ndarray]:
         """Read data from a file and return sentences and targets."""
         data, targets = [], []
         with open(filename, "r") as file:
@@ -309,36 +309,37 @@ def run_experiments(
     gc.collect()
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument("-n_jobs", action="store")
-args = parser.parse_args()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-n_jobs", action="store")
+    args = parser.parse_args()
 
-BATCH_SIZE = 20
-EPOCHS = 100
-N_REPETITIONS = 30
+    BATCH_SIZE = 20
+    EPOCHS = 100
+    N_REPETITIONS = 30
 
-levels = ["easy", "medium", "hard"]
-anstaze = [
-    IQPAnsatz,
-    # StronglyEntanglingAnsatz,
-    Sim4Ansatz,
-    # Sim14Ansatz,
-    # Sim15Ansatz,
-]
-dim_noun = dim_sentence = [1, 2]
-dim_prepositional_phrase = [1]
-n_layers = [1, 2]
+    levels = ["easy", "medium", "hard"]
+    anstaze = [
+        IQPAnsatz,
+        # StronglyEntanglingAnsatz,
+        Sim4Ansatz,
+        # Sim14Ansatz,
+        # Sim15Ansatz,
+    ]
+    dim_noun = dim_sentence = [1, 2]
+    dim_prepositional_phrase = [1]
+    n_layers = [1, 2]
 
-experiments = product(
-    levels,
-    anstaze,
-    dim_noun,
-    dim_sentence,
-    dim_prepositional_phrase,
-    n_layers,
-    range(N_REPETITIONS),
-)
+    experiments = product(
+        levels,
+        anstaze,
+        dim_noun,
+        dim_sentence,
+        dim_prepositional_phrase,
+        n_layers,
+        range(N_REPETITIONS),
+    )
 
-Parallel(n_jobs=int(args.n_jobs), backend="multiprocessing")(
-    delayed(run_experiments)(*experiment) for experiment in experiments
-)
+    Parallel(n_jobs=int(args.n_jobs), backend="multiprocessing")(
+        delayed(run_experiments)(*experiment) for experiment in experiments
+    )
