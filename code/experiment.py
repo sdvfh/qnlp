@@ -13,6 +13,7 @@ from joblib import Parallel, delayed
 from lambeq import (
     AtomicType,
     BobcatParser,
+    CircuitAnsatz,
     Dataset,
     IQPAnsatz,
     PennyLaneModel,
@@ -23,6 +24,7 @@ from lambeq import (
     StronglyEntanglingAnsatz,
     UnifyCodomainRewriter,
 )
+from lambeq.backend.quantum import CX, Controlled, Id, Ry, X
 from lambeq.backend.tensor import Diagram
 from sklearn.metrics import (
     accuracy_score,
@@ -31,6 +33,41 @@ from sklearn.metrics import (
     recall_score,
     roc_auc_score,
 )
+
+
+def real_ansatz_circuit(n_qubits, params):
+    circuit = Id(n_qubits)
+    n_layers = params.shape[0] - 1
+
+    for i in range(n_layers):
+        syms = params[i]
+
+        # adds a layer of Y rotations
+        circuit >>= Id().tensor(*[Ry(sym) for sym in syms])
+
+        # adds a ladder of CNOTs
+        for j in range(n_qubits - 1):
+            circuit >>= Id(j) @ CX @ Id(n_qubits - j - 2)
+        if n_qubits > 2:
+            circuit >>= Controlled(X, -(n_qubits - 1))
+    return circuit
+
+
+class RealAnsatz(CircuitAnsatz):
+    def __init__(self, ob_map, n_layers, n_single_qubit_params=1, discard=False):
+        super().__init__(
+            ob_map,
+            n_layers,
+            n_single_qubit_params,
+            real_ansatz_circuit,
+            discard,
+            [
+                Ry,
+            ],
+        )
+
+    def params_shape(self, n_qubits):
+        return (self.n_layers + 1, n_qubits)
 
 
 class MyModel(PennyLaneModel):
@@ -321,8 +358,9 @@ if __name__ == "__main__":
     levels = ["easy", "medium", "hard"]
     anstaze = [
         IQPAnsatz,
+        RealAnsatz,
         # StronglyEntanglingAnsatz,
-        Sim4Ansatz,
+        # Sim4Ansatz,
         # Sim14Ansatz,
         # Sim15Ansatz,
     ]
