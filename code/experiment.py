@@ -329,6 +329,8 @@ def run_experiments(
 ):
     if dim_sentence == dim_noun == 2:
         return
+    if dim_noun == 2 and n_layer > 1 :
+        return
     experiment = Experiment(
         level=level,
         ansatz=ansatz,
@@ -355,7 +357,7 @@ if __name__ == "__main__":
     EPOCHS = 100
     N_REPETITIONS = 30
 
-    levels = ["easy", "medium", "hard"]
+    levels = ["easy", "hard"]
     anstaze = [
         IQPAnsatz,
         RealAnsatz,
