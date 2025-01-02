@@ -18,10 +18,6 @@ from lambeq import (
     IQPAnsatz,
     PennyLaneModel,
     RemoveCupsRewriter,
-    Sim4Ansatz,
-    Sim14Ansatz,
-    Sim15Ansatz,
-    StronglyEntanglingAnsatz,
     UnifyCodomainRewriter,
 )
 from lambeq.backend.quantum import CX, Controlled, Id, Ry, X
@@ -329,7 +325,7 @@ def run_experiments(
 ):
     if dim_sentence == dim_noun == 2:
         return
-    if dim_noun == 2 and n_layer > 1 :
+    if dim_noun == 2 and n_layer > 1:
         return
     experiment = Experiment(
         level=level,
