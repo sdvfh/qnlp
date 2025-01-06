@@ -10,7 +10,7 @@ from sklearn.metrics import roc_curve
 
 def read_results() -> pd.DataFrame:
     """Read all results from the results folder and return a DataFrame."""
-    result_files = Path("../results").rglob("*.pkl.gz")
+    result_files = Path("./results").rglob("*.pkl.gz")
     results_list = []
     for result_file in result_files:
         with gzip.open(result_file, "rb") as f:
