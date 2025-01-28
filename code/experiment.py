@@ -323,9 +323,9 @@ def run_experiments(
     n_layer,
     seed,
 ):
-    if dim_sentence == dim_noun == 2:
-        return
-    if dim_noun == 2 and n_layer > 1:
+    if (dim_sentence == dim_noun == 2) or (
+        (dim_noun == 2 or dim_sentence == 2) and n_layer > 1
+    ):
         return
     experiment = Experiment(
         level=level,
@@ -364,7 +364,7 @@ if __name__ == "__main__":
     ]
     dim_noun = dim_sentence = [1, 2]
     dim_prepositional_phrase = [1]
-    n_layers = [1, 2]
+    n_layers = [1, 2, 4, 8]
 
     experiments = product(
         levels,
