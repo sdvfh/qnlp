@@ -3,6 +3,7 @@ import pickle
 from pathlib import Path
 
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 from experiment import Experiment
 from sklearn.metrics import roc_curve
@@ -38,10 +39,15 @@ def get_loss_info(losses_info: list) -> list:
             }
             for epoch, batches in experiment_info.items()
         }
-        losses = [data["Loss"] for data in epoch_data.values()]
+        # losses = [data["Loss"] for data in epoch_data.values()]
         processing_time = sum(data["Processing time"] for data in epoch_data.values())
-        aggregated_info.append({"losses": losses, "processing_time": processing_time})
-    return aggregated_info
+        # aggregated_info.append({"losses": losses, "processing_time": processing_time})
+        # return aggregated_info
+        aggregated_info.append(processing_time)
+    return {
+        "mean": np.mean(aggregated_info) / 3600,
+        "std": np.std(aggregated_info) / 3600,
+    }
 
 
 # def compute_roc_curve(experiments: list) -> dict:
