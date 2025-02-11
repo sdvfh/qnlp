@@ -1,0 +1,50 @@
+1 She was ecstatic about the upcoming journey .
+0 He felt desolate in the abandoned town .
+1 They rejoiced at the unexpected success .
+0 The tragic news overwhelmed them with grief .
+1 He was delighted by the favorable outcome .
+0 She mourned the end of the cherished tradition .
+1 They celebrated with joyous laughter .
+0 He was disheartened by the continuous failures .
+1 She felt uplifted by the inspiring speech .
+0 The sorrow engulfed him entirely .
+1 He grinned at the delightful prospect .
+0 She was heartbroken after the abrupt farewell .
+1 They enjoyed the serene environment .
+0 He felt dejected walking through the empty streets .
+1 She was thrilled to begin the new chapter .
+0 The melancholy atmosphere pervaded the room .
+1 He chuckled at the amusing incident .
+0 She was downcast due to the unfavorable news .
+1 They were glad to witness the improvement .
+0 He felt miserable during the long absence .
+1 She smiled at the endearing gesture .
+0 The grief was apparent in their silence .
+1 He was content with the simple pleasures .
+0 She lamented the loss of the precious moment .
+1 They found happiness in their shared experiences .
+0 He was gloomy amidst the cheerful crowd .
+1 She giggled at the entertaining story .
+0 The heavy silence signified their sorrow .
+1 He was satisfied after completing the task .
+0 She felt forlorn in the unfamiliar place .
+1 They exulted in their collective achievement .
+0 He was troubled by the recurring nightmares .
+1 She was delighted to reunite with old friends .
+0 The despair was evident in his demeanor .
+1 He laughed at the lighthearted joke .
+0 She felt wretched facing the harsh reality .
+1 They appreciated the vibrant celebration .
+0 He was sullen during the entire journey .
+1 She rejoiced in the success of her endeavor .
+0 The regret consumed his thoughts constantly .
+1 He was pleased with the recognition received .
+0 She felt desolate after the sudden departure .
+1 They enjoyed the unexpected gift .
+0 He was discouraged by the lack of progress .
+1 She smiled warmly at the familiar face .
+0 The somber news dampened the festive mood .
+1 He felt cheerful amidst the blooming flowers .
+0 She was inconsolable over the broken trust .
+1 They relished the peaceful moment together .
+0 He felt hopeless confronting the daunting challenge .
