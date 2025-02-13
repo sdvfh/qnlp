@@ -157,7 +157,7 @@ def square_loss(
     """
     labels = np.array(labels)
     predictions = np.array(predictions)
-    return float(np.mean((labels - predictions) ** 2))
+    return np.mean((labels - predictions) ** 2)
 
 
 def cost(
@@ -199,8 +199,8 @@ def accuracy(
 
 LEVELS = ["easy", "medium", "hard"]
 TYPES_DATASETS = ["train", "test"]
-EPOCHS = 10
-BATCH_SIZE = 20
+EPOCHS = 100
+BATCH_SIZE = 10
 N_QUBITS = 10
 
 n_layers = 1
@@ -232,7 +232,6 @@ for epoch in range(1, EPOCHS + 1):
     rng.shuffle(indices)
 
     for start_idx in range(0, len_train, BATCH_SIZE):
-        print(f"Training epoch {epoch} batch {start_idx // BATCH_SIZE + 1}")
         end_idx = start_idx + BATCH_SIZE
         batch_indices = indices[start_idx:end_idx]
 
