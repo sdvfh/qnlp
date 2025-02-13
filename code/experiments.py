@@ -106,9 +106,9 @@ def get_embeddings(
     return dfs
 
 
-def circuit(weights: np.ndarray, x: np.ndarray) -> float:
+def quantum_circuit_fn(weights: np.ndarray, x: np.ndarray) -> float:
     """
-    Implements a quantum circuit for variational classification.
+    Implements the quantum circuit for variational classification.
 
     Args:
         weights (np.ndarray): The weights for the quantum gates.
@@ -117,29 +117,29 @@ def circuit(weights: np.ndarray, x: np.ndarray) -> float:
     Returns:
         float: The expectation value of the PauliZ operator applied to the circuit.
     """
-    # Note: N_QUBITS is assumed to be defined elsewhere.
     wires = range(N_QUBITS)
     qml.AmplitudeEmbedding(features=x, wires=wires, normalize=True, pad_with=0.0)
     qml.StronglyEntanglingLayers(weights, wires=wires)
-
     # Combine the PauliZ observables for all wires
     result = reduce(operator.matmul, [qml.PauliZ(i) for i in wires])
     return qml.expval(result)
 
 
-def variational_classifier(weights: np.ndarray, bias: float, x: np.ndarray) -> float:
+def variational_classifier(
+    weights: np.ndarray, bias: float, x: np.ndarray
+) -> np.ndarray:
     """
-    Computes the output of the variational quantum classifier.
+    Computes the output of the variational quantum classifier in a vectorized manner.
 
     Args:
         weights (np.ndarray): The weights for the quantum gates.
         bias (float): The bias term to be added to the circuit's output.
-        x (np.ndarray): The input features to be embedded into the quantum circuit.
+        x (np.ndarray): The input features (or batch of features) to be embedded into the quantum circuit.
 
     Returns:
-        float: The output of the variational quantum classifier.
+        np.ndarray: The outputs of the variational quantum classifier.
     """
-    return circuit(weights, x) + bias
+    return quantum_circuit(weights, x) + bias
 
 
 def square_loss(
@@ -175,7 +175,7 @@ def cost(
     Returns:
         float: The mean squared error loss for the batch.
     """
-    predictions = [variational_classifier(weights, bias, x) for x in x_batch]
+    predictions = variational_classifier(weights, bias, x_batch)
     return square_loss(y_batch, predictions)
 
 
@@ -197,28 +197,34 @@ def accuracy(
     return float(np.mean(np.abs(labels - predictions) < 1e-5))
 
 
+# Constants and Hyperparameters
 LEVELS = ["easy", "medium", "hard"]
 TYPES_DATASETS = ["train", "test"]
 EPOCHS = 100
-BATCH_SIZE = 10
+BATCH_SIZE = 5
 N_QUBITS = 10
-
 n_layers = 1
-device = qml.device("default.qubit", wires=N_QUBITS)
-circuit = qml.QNode(circuit, device)
 
+# Initialize the device (reassign the device in qnode if necessary)
+device = qml.device("default.qubit", wires=N_QUBITS)
+quantum_circuit = qml.QNode(quantum_circuit_fn, device=device, interface="autograd")
+
+# Paths and random number generator
 paths = {"data": Path(__file__).parent.parent / "data"}
 rng = np.random.default_rng(seed=0)
 
+# Load and embed dataset for each level
 dfs = {level: read_dataset(paths["data"], level) for level in LEVELS}
 dfs = get_embeddings(dfs, LEVELS, TYPES_DATASETS)
 
+# Use the "easy" level for training and testing in this example
 x_train = np.array(dfs["easy"]["train"]["embeddings"], requires_grad=False)
 y_train = np.array(dfs["easy"]["train"]["targets"], requires_grad=False)
 x_test = np.array(dfs["easy"]["test"]["embeddings"], requires_grad=False)
 y_test = np.array(dfs["easy"]["test"]["targets"], requires_grad=False)
 len_train = len(y_train)
 
+# Initialize weights and bias
 weights_init = 0.01 * rng.normal(size=(n_layers, N_QUBITS, 3), requires_grad=True)
 bias_init = np.array(0.0, requires_grad=True)
 
@@ -227,6 +233,7 @@ opt = NesterovMomentumOptimizer(0.01)
 weights = weights_init
 bias = bias_init
 
+# Training loop
 for epoch in range(1, EPOCHS + 1):
     indices = np.arange(len_train)
     rng.shuffle(indices)
@@ -240,11 +247,12 @@ for epoch in range(1, EPOCHS + 1):
 
         weights, bias, _, _ = opt.step(cost, weights, bias, x_batch, y_batch)
 
-    y_pred = [np.sign(variational_classifier(weights, bias, x)) for x in x_test]
-
+    # Compute test predictions in a vectorized manner
+    y_pred = np.sign(variational_classifier(weights, bias, x_test))
     acc = accuracy(y_test, y_pred)
 
     print(
-        "Iter: {:5d} | Cost train: {:0.7f} | Acc test: {:0.7f} | "
-        "".format(epoch, cost(weights, bias, x_train, y_train), acc)
+        "Epoch: {:5d} | Training Cost: {:0.7f} | Test Accuracy: {:0.7f}".format(
+            epoch, cost(weights, bias, x_train, y_train), acc
+        )
     )
