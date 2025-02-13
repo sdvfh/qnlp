@@ -160,6 +160,29 @@ def square_loss(
     return np.mean((labels - predictions) ** 2)
 
 
+def log_loss(
+    labels: Union[np.ndarray, List[int]], predictions: Union[np.ndarray, List[float]]
+) -> float:
+    """
+    Calculates the log loss (cross-entropy loss) between the true labels and the predicted probabilities.
+
+    Args:
+        labels (np.ndarray or List[int]): The true labels (e.g., 0 or 1 for binary classification).
+        predictions (np.ndarray or List[float]): The predicted probabilities for the positive class.
+
+    Returns:
+        float: The log loss.
+    """
+    labels = np.array(labels)
+    predictions = np.array(predictions)
+    # To avoid log(0), clip predictions to a small value
+    epsilon = 1e-15
+    predictions = np.clip(predictions, epsilon, 1 - epsilon)
+    return -np.mean(
+        labels * np.log(predictions) + (1 - labels) * np.log(1 - predictions)
+    )
+
+
 def cost(
     weights: np.ndarray, bias: float, x_batch: np.ndarray, y_batch: np.ndarray
 ) -> float:
@@ -176,7 +199,7 @@ def cost(
         float: The mean squared error loss for the batch.
     """
     predictions = variational_classifier(weights, bias, x_batch)
-    return square_loss(y_batch, predictions)
+    return log_loss(y_batch, predictions)
 
 
 def accuracy(
