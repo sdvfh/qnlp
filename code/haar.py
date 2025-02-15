@@ -7,23 +7,24 @@ from pennylane.operation import Operation
 
 DatasetType = Dict[str, Union[List[str], np.ndarray, Any]]
 DataDict = Dict[str, DatasetType]
+SizeType = Union[int, Tuple["SizeType", ...]]
 
 
-def random_unitary(N: int) -> np.ndarray:
+def random_unitary(n: int) -> np.ndarray:
     """
     Returns a Haar-distributed random unitary matrix from U(N).
 
     Args:
-        N (int): The dimension of the unitary matrix.
+        n (int): The dimension of the unitary matrix.
 
     Returns:
         np.ndarray: A Haar-distributed random unitary matrix of shape (N, N).
     """
     # Generate a random complex matrix.
-    Z = np.random.randn(N, N) + 1.0j * np.random.randn(N, N)
-    Q, R = la.qr(Z)
-    D = np.diag(np.diagonal(R) / np.abs(np.diagonal(R)))
-    return np.dot(Q, D)
+    z = np.random.randn(n, n) + 1.0j * np.random.randn(n, n)
+    q, r = la.qr(z)
+    d = np.diag(np.diagonal(r) / np.abs(np.diagonal(r)))
+    return np.dot(q, d)
 
 
 def haar_integral(num_qubits: int, samples: int) -> np.ndarray:
@@ -38,16 +39,16 @@ def haar_integral(num_qubits: int, samples: int) -> np.ndarray:
     Returns:
         np.ndarray: The averaged density matrix computed from Haar-distributed unitaries.
     """
-    N: int = 2**num_qubits
-    zero_state: np.ndarray = np.zeros(N, dtype=complex)
+    n: int = 2**num_qubits
+    zero_state: np.ndarray = np.zeros(n, dtype=complex)
     zero_state[0] = 1.0
 
     density_matrices = []
     for _ in range(samples):
-        U = random_unitary(N)
+        u = random_unitary(n)
         # Embed the zero state into the unitary transformation.
-        A = np.matmul(zero_state, U).reshape(-1, 1)
-        density_matrices.append(np.kron(A, A.conj().T))
+        a = np.matmul(zero_state, u).reshape(-1, 1)
+        density_matrices.append(np.kron(a, a.conj().T))
 
     return np.mean(density_matrices, axis=0)
 
@@ -55,7 +56,7 @@ def haar_integral(num_qubits: int, samples: int) -> np.ndarray:
 def pqc_integral(
     num_qubits: int,
     ansatze: Callable[[np.ndarray, int], Operation],
-    size: Union[int, Tuple[int, int]],
+    size: SizeType,
     samples: int,
 ) -> np.ndarray:
     """
@@ -86,8 +87,8 @@ def pqc_integral(
     # Collect density matrices in a list for each sample.
     density_matrices = []
     for _ in range(samples):
-        params = np.random.uniform(-np.pi, np.pi, size)
-        state = circuit(params).reshape(-1, 1)
+        parameters = np.random.uniform(-np.pi, np.pi, size)
+        state = circuit(parameters).reshape(-1, 1)
         density = np.kron(state, state.conj().T)
         density_matrices.append(density)
 
