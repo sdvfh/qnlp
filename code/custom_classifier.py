@@ -32,13 +32,6 @@ class QVC(ClassifierMixin, BaseEstimator):
         self.batch_size = batch_size
         self.random_state = random_state
 
-    def __sklearn_tags__(self):
-        tags = super().__sklearn_tags__()
-        tags.estimator_type = "classifier"
-        tags.classifier_tags = ClassifierTags(multi_class=False, multi_label=False)
-        tags.target_tags.required = True
-        return tags
-
     def fit(self, X, y):
         # Check that X and y have correct shape, set n_features_in_, etc.
         X = check_array(X)
@@ -92,20 +85,10 @@ class QVC(ClassifierMixin, BaseEstimator):
         return self
 
     def transform_y(self, y_true):
-        self.le_ = LabelEncoder()
-        y_true = self.le_.fit_transform(y_true)
         unique_labels = np.sort(np.unique(y_true))
 
-        if len(unique_labels) > 2:
-            raise ValueError("y_true must contain exactly two unique labels.")
-
-        if len(unique_labels) == 1:
-            # Criar mapeamento
-            mapping = {int(unique_labels[0]): 1}
-            self.inverse_mapping_ = {1: unique_labels[0]}
-        else:
-            mapping = {int(unique_labels[0]): -1, int(unique_labels[1]): 1}
-            self.inverse_mapping_ = {-1: unique_labels[0], 1: unique_labels[1]}
+        mapping = {int(unique_labels[0]): -1, int(unique_labels[1]): 1}
+        self.inverse_mapping_ = {-1: unique_labels[0], 1: unique_labels[1]}
 
         # Aplicar mapeamento
         y_mapped = np.array([mapping[int(y)] for y in y_true])
@@ -114,7 +97,6 @@ class QVC(ClassifierMixin, BaseEstimator):
 
     def inverse_transform_y(self, y_mapped):
         y_mapped = np.array([self.inverse_mapping_[int(y)] for y in y_mapped])
-        y_mapped = self.le_.inverse_transform(y_mapped)
         return y_mapped
 
     def get_n_qubits(self, X):
@@ -164,11 +146,6 @@ class QVC(ClassifierMixin, BaseEstimator):
                 float: The expectation value of the PauliZ operator applied to the circuit.
             """
             wires = range(self.n_qubits_)
-            norms = np.linalg.norm(x, axis=1)
-            zero_indices = np.where(norms < 1e-12)[0]
-            for idx in zero_indices:
-                x[idx] = np.zeros_like(x.shape[1])
-                x[idx, 0] = 1.0
             qml.AmplitudeEmbedding(
                 features=x, wires=wires, normalize=True, pad_with=0.0
             )
@@ -238,8 +215,8 @@ class QVC(ClassifierMixin, BaseEstimator):
             float: The mean squared error loss for the batch.
         """
         predictions = self.variational_classifier(weights, bias, x_batch)
-        return self.log_loss(y_batch, predictions)
-        # return self.square_loss(y_batch, predictions)
+        # return self.log_loss(y_batch, predictions)
+        return self.square_loss(y_batch, predictions)
 
     @staticmethod
     def accuracy(
@@ -259,6 +236,3 @@ class QVC(ClassifierMixin, BaseEstimator):
         labels = np.array(labels)
         predictions = np.array(predictions)
         return float(np.mean(np.abs(labels - predictions) < 1e-5))
-
-
-check_estimator(QVC())  # passes

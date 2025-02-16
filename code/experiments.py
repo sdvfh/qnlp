@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
 import pennylane as qml
+from custom_classifier import QVC
 from pennylane import numpy as np
 from pennylane.optimize import NesterovMomentumOptimizer
 from sentence_transformers import SentenceTransformer
@@ -247,35 +248,8 @@ x_test = np.array(dfs["easy"]["test"]["embeddings"], requires_grad=False)
 y_test = np.array(dfs["easy"]["test"]["targets"], requires_grad=False)
 len_train = len(y_train)
 
-# Initialize weights and bias
-weights_init = 0.01 * rng.normal(size=(n_layers, N_QUBITS, 3), requires_grad=True)
-bias_init = np.array(0.0, requires_grad=True)
+qvc = QVC(n_layers=1, max_iter=10, batch_size=20, random_state=0)
+qvc.fit(x_train, y_train)
+y_pred = qvc.predict(x_test)
 
-opt = NesterovMomentumOptimizer(0.01)
-
-weights = weights_init
-bias = bias_init
-
-# Training loop
-for epoch in range(1, EPOCHS + 1):
-    indices = np.arange(len_train)
-    rng.shuffle(indices)
-
-    for start_idx in range(0, len_train, BATCH_SIZE):
-        end_idx = start_idx + BATCH_SIZE
-        batch_indices = indices[start_idx:end_idx]
-
-        x_batch = x_train[batch_indices]
-        y_batch = y_train[batch_indices]
-
-        weights, bias, _, _ = opt.step(cost, weights, bias, x_batch, y_batch)
-
-    # Compute test predictions in a vectorized manner
-    y_pred = np.sign(variational_classifier(weights, bias, x_test))
-    acc = accuracy(y_test, y_pred)
-
-    print(
-        "Epoch: {:5d} | Training Cost: {:0.7f} | Test Accuracy: {:0.7f}".format(
-            epoch, cost(weights, bias, x_train, y_train), acc
-        )
-    )
+print(y_pred)
