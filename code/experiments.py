@@ -7,7 +7,7 @@ import pennylane as qml
 from custom_classifier import QVC
 from pennylane import numpy as np
 from sentence_transformers import SentenceTransformer
-from sklearn.ensemble import AdaBoostClassifier
+from sklearn.ensemble import AdaBoostClassifier, BaggingClassifier
 
 # Define type aliases for clarity
 DatasetType = Dict[str, Union[List[str], np.ndarray, Any]]
@@ -248,8 +248,11 @@ x_test = np.array(dfs["easy"]["test"]["embeddings"], requires_grad=False)
 y_test = np.array(dfs["easy"]["test"]["targets"], requires_grad=False)
 len_train = len(y_train)
 
-qvc = QVC(n_layers=1, max_iter=10, batch_size=20, random_state=0)
-ensemble = AdaBoostClassifier(estimator=qvc, n_estimators=10, random_state=0)
+qvc = QVC(n_layers=1, max_iter=1, batch_size=20, random_state=0)
+# ensemble = AdaBoostClassifier(estimator=qvc, n_estimators=10, random_state=0)
+ensemble = BaggingClassifier(
+    estimator=qvc, n_estimators=2, random_state=0, max_features=0.8, max_samples=0.8
+)
 ensemble.fit(x_train, y_train)
 y_pred = ensemble.predict(x_test)
 print(y_pred)

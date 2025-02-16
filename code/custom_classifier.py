@@ -222,7 +222,7 @@ class QVC(ClassifierMixin, BaseEstimator):
         X = np.array(X, requires_grad=False, dtype=float)
         output: np.ndarray = self.variational_classifier(self.weights_, self.bias_, X)
         output = (1 + output) / 2
-        return np.row_stack([1 - output, output])
+        return np.column_stack([1 - output, output])
 
     def variational_classifier(
         self, weights: np.ndarray, bias: float, x: np.ndarray
