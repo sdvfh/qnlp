@@ -1,6 +1,6 @@
 import operator
 from functools import reduce
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import pennylane as qml
 from pennylane import numpy as np
@@ -19,7 +19,7 @@ DatasetType = Dict[str, Union[List[str], np.ndarray, Any]]
 DataDict = Dict[str, DatasetType]
 
 
-class QVC(ClassifierMixin, BaseEstimator):
+class BaseQVC(ClassifierMixin, BaseEstimator):
     """
     Variational Quantum Classifier (QVC)
 
@@ -63,7 +63,7 @@ class QVC(ClassifierMixin, BaseEstimator):
         X: np.ndarray,
         y: np.ndarray,
         sample_weight: Optional[Union[np.ndarray, List[float]]] = None,
-    ) -> "QVC":
+    ) -> "BaseQVC":
         """
         Fit the variational quantum classifier to the training data.
 
@@ -73,7 +73,7 @@ class QVC(ClassifierMixin, BaseEstimator):
             sample_weight (Optional[Union[np.ndarray, List[float]]]): Sample weights for training.
 
         Returns:
-            QVC: The fitted classifier.
+            BaseQVC: The fitted classifier.
         """
         X = check_array(X)
         y = self.transform_y(y)
@@ -95,14 +95,7 @@ class QVC(ClassifierMixin, BaseEstimator):
 
         opt = NesterovMomentumOptimizer(0.01)
 
-        weights_init = 0.01 * self.random_state_.normal(
-            size=(self.n_layers, self.n_qubits_, 3)
-        )
-        weights_init = np.array(weights_init, requires_grad=True)
-        bias_init = np.array(0.0, requires_grad=True)
-
-        self.weights_ = weights_init
-        self.bias_ = bias_init
+        self.weights_, self.bias_ = self.get_weights_biases()
 
         len_train: int = X.shape[0]
 
@@ -255,7 +248,7 @@ class QVC(ClassifierMixin, BaseEstimator):
             qml.AmplitudeEmbedding(
                 features=x, wires=wires, normalize=True, pad_with=0.0
             )
-            qml.StronglyEntanglingLayers(weights, wires=wires)
+            self.ansatz(weights, wires)
             result = reduce(operator.matmul, [qml.PauliZ(i) for i in wires])
             return qml.expval(result)
 
@@ -352,3 +345,28 @@ class QVC(ClassifierMixin, BaseEstimator):
         labels = np.array(labels)
         predictions = np.array(predictions)
         return float(np.mean(np.abs(labels - predictions) < 1e-5))
+
+    def get_weights_biases(self) -> Tuple[np.ndarray, float]:
+        """
+        Initialize the weights and biases for the quantum circuit.
+
+        Returns:
+            Tuple[np.ndarray, float]: Initial weights and bias.
+        """
+        raise NotImplementedError("Subclasses must implement this method.")
+
+    def ansatz(self, weights: np.ndarray, wires: List[int]) -> None:
+        raise NotImplementedError("Subclasses must implement this method.")
+
+
+class Ansatz1(BaseQVC):
+    def get_weights_biases(self) -> Tuple[np.ndarray, float]:
+        weights = 0.01 * self.random_state_.normal(
+            size=(self.n_layers, self.n_qubits_, 3)
+        )
+        weights = np.array(weights, requires_grad=True)
+        bias = np.array(0.0, requires_grad=True)
+        return weights, bias
+
+    def ansatz(self, weights: np.ndarray, wires: List[int]) -> None:
+        qml.StronglyEntanglingLayers(weights, wires=wires)

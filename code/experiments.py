@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
 import pennylane as qml
-from custom_classifier import QVC
+from custom_classifier import Ansatz1
 from pennylane import numpy as np
 from sentence_transformers import SentenceTransformer
 from sklearn.ensemble import AdaBoostClassifier, BaggingClassifier, VotingClassifier
@@ -247,11 +247,11 @@ x_test = np.array(dfs["easy"]["test"]["embeddings"], requires_grad=False)
 y_test = np.array(dfs["easy"]["test"]["targets"], requires_grad=False)
 len_train = len(y_train)
 
-qvc1 = QVC(n_layers=1, max_iter=1, batch_size=20, random_state=0)
-qvc2 = QVC(n_layers=10, max_iter=1, batch_size=20, random_state=0)
-# ensemble = AdaBoostClassifier(estimator=qvc, n_estimators=10, random_state=0)
+qvc1 = Ansatz1(n_layers=1, max_iter=1, batch_size=20, random_state=0)
+qvc2 = Ansatz1(n_layers=10, max_iter=1, batch_size=20, random_state=0)
+# ensemble = AdaBoostClassifier(estimator=qvc1, n_estimators=10, random_state=0)
 # ensemble = BaggingClassifier(
-#     estimator=qvc, n_estimators=2, random_state=0, max_features=0.8, max_samples=0.8
+#     estimator=qvc1, n_estimators=2, random_state=0, max_features=0.8, max_samples=0.8
 # )
 estimators = [("qvc1", qvc1), ("qvc2", qvc2)]
 # ensemble = VotingClassifier(estimators=estimators, voting="soft")
