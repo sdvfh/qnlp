@@ -6,8 +6,8 @@ from typing import Any, Dict, List, Tuple, Union
 import pennylane as qml
 from custom_classifier import QVC
 from pennylane import numpy as np
-from pennylane.optimize import NesterovMomentumOptimizer
 from sentence_transformers import SentenceTransformer
+from sklearn.ensemble import AdaBoostClassifier
 
 # Define type aliases for clarity
 DatasetType = Dict[str, Union[List[str], np.ndarray, Any]]
@@ -249,7 +249,7 @@ y_test = np.array(dfs["easy"]["test"]["targets"], requires_grad=False)
 len_train = len(y_train)
 
 qvc = QVC(n_layers=1, max_iter=10, batch_size=20, random_state=0)
-qvc.fit(x_train, y_train)
-y_pred = qvc.predict(x_test)
-
+ensemble = AdaBoostClassifier(estimator=qvc, n_estimators=10, random_state=0)
+ensemble.fit(x_train, y_train)
+y_pred = ensemble.predict(x_test)
 print(y_pred)
