@@ -7,7 +7,7 @@ import pennylane as qml
 from custom_classifier import QVC
 from pennylane import numpy as np
 from sentence_transformers import SentenceTransformer
-from sklearn.ensemble import AdaBoostClassifier, BaggingClassifier
+from sklearn.ensemble import AdaBoostClassifier, BaggingClassifier, VotingClassifier
 
 # Define type aliases for clarity
 DatasetType = Dict[str, Union[List[str], np.ndarray, Any]]
@@ -235,7 +235,6 @@ quantum_circuit = qml.QNode(quantum_circuit_fn, device=device, interface="autogr
 
 # Paths and random number generator
 paths = {"data": Path(__file__).parent.parent / "data"}
-rng = np.random.default_rng(seed=0)
 
 # Load and embed dataset for each level
 dfs = {level: read_dataset(paths["data"], level) for level in LEVELS}
@@ -248,11 +247,15 @@ x_test = np.array(dfs["easy"]["test"]["embeddings"], requires_grad=False)
 y_test = np.array(dfs["easy"]["test"]["targets"], requires_grad=False)
 len_train = len(y_train)
 
-qvc = QVC(n_layers=1, max_iter=1, batch_size=20, random_state=0)
+qvc1 = QVC(n_layers=1, max_iter=1, batch_size=20, random_state=0)
+qvc2 = QVC(n_layers=10, max_iter=1, batch_size=20, random_state=0)
 # ensemble = AdaBoostClassifier(estimator=qvc, n_estimators=10, random_state=0)
-ensemble = BaggingClassifier(
-    estimator=qvc, n_estimators=2, random_state=0, max_features=0.8, max_samples=0.8
-)
+# ensemble = BaggingClassifier(
+#     estimator=qvc, n_estimators=2, random_state=0, max_features=0.8, max_samples=0.8
+# )
+estimators = [("qvc1", qvc1), ("qvc2", qvc2)]
+# ensemble = VotingClassifier(estimators=estimators, voting="soft")
+ensemble = VotingClassifier(estimators=estimators, voting="hard")
 ensemble.fit(x_train, y_train)
 y_pred = ensemble.predict(x_test)
 print(y_pred)
