@@ -96,8 +96,9 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         opt = NesterovMomentumOptimizer(0.01)
 
         self.weights_ = self.get_weights()
-
         self.bias_ = np.array(0.0, requires_grad=True)
+
+        self.loss_curve_ = []
 
         len_train: int = X.shape[0]
 
@@ -133,6 +134,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
                 )
             else:
                 train_cost: float = self.cost(self.weights_, self.bias_, X, y)
+            self.loss_curve_.append(train_cost)
             print("Epoch: {:5d} | Training Cost: {:0.7f}".format(n_iter, train_cost))
 
         return self
@@ -428,3 +430,12 @@ class AnsatzRotCNOT(BaseQVC):
         self, weights: np.ndarray, wires: Union[List[int], range], n_layers: int
     ) -> None:
         qml.StronglyEntanglingLayers(weights, wires=wires)
+
+
+models = [
+    AnsatzSingleRotX,
+    AnsatzSingleRotY,
+    AnsatzSingleRotZ,
+    AnsatzRot,
+    AnsatzRotCNOT,
+]
