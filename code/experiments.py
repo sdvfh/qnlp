@@ -5,6 +5,7 @@ and saves the results to disk.
 """
 
 import pickle
+from itertools import product
 from pathlib import Path
 from typing import Any, Dict, Type
 
@@ -30,7 +31,6 @@ def run_model_for_seed(
     level: str,
     n_layers: int,
     seed: int,
-    model_name: str,
     results_path: Path,
     epochs: int,
     batch_size: int,
@@ -40,7 +40,7 @@ def run_model_for_seed(
 
     This function instantiates the model with the provided parameters, fits it on the training data,
     predicts probabilities on the test data, computes various evaluation metrics, and saves these metrics
-    to a file in the results directory.
+    to a file in the results' directory.
 
     Args:
         model (Type[Any]): The classifier model class.
@@ -51,7 +51,6 @@ def run_model_for_seed(
         level (str): The dataset difficulty level (e.g., "easy", "medium", "hard").
         n_layers (int): The number of layers used in the model.
         seed (int): The random seed for reproducibility.
-        model_name (str): The name of the model, used when saving results.
         results_path (Path): The directory where the results will be saved.
         epochs (int): The number of training epochs.
         batch_size (int): The size of the training batches.
@@ -59,6 +58,7 @@ def run_model_for_seed(
     Returns:
         None
     """
+    model_name: str = model.__name__
     filename: str = f"{model_name}_{level}_{n_layers}_{seed}.pkl"
     file_path: Path = results_path / filename
 
@@ -139,27 +139,24 @@ def main() -> None:
         x_test = np.array(datasets[level]["test"]["embeddings"], requires_grad=False)
         y_test = np.array(datasets[level]["test"]["targets"], requires_grad=False)
 
-        for model in models:
-            model_name: str = model.__name__
-            Parallel(n_jobs=N_REPETITIONS)(
-                [
-                    delayed(run_model_for_seed)(
-                        model,
-                        x_train,
-                        y_train,
-                        x_test,
-                        y_test,
-                        level,
-                        n_layers,
-                        seed,
-                        model_name,
-                        results_path,
-                        EPOCHS,
-                        BATCH_SIZE,
-                    )
-                    for seed in range(N_REPETITIONS)
-                ]
-            )
+        Parallel(n_jobs=-1)(
+            [
+                delayed(run_model_for_seed)(
+                    model,
+                    x_train,
+                    y_train,
+                    x_test,
+                    y_test,
+                    level,
+                    n_layers,
+                    seed,
+                    results_path,
+                    EPOCHS,
+                    BATCH_SIZE,
+                )
+                for model, seed in product(models, range(N_REPETITIONS))
+            ]
+        )
 
 
 if __name__ == "__main__":
