@@ -144,7 +144,7 @@ def main() -> None:
             )
             y_test = np.array(datasets[level]["test"]["targets"], requires_grad=False)
 
-            Parallel(n_jobs=-1)(
+            Parallel(n_jobs=n_repetitions)(
                 [
                     delayed(run_model_for_seed)(
                         model,
