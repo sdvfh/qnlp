@@ -1,9 +1,16 @@
+"""
+This module executes parallel model evaluations over multiple datasets and random seeds.
+It reads datasets, obtains embeddings, trains each model, computes evaluation metrics,
+and saves the results to disk.
+"""
+
 import pickle
 from pathlib import Path
+from typing import Any, Dict, Type
 
 from custom_classifier import models
+from joblib import Parallel, delayed
 from pennylane import numpy as np
-from sklearn.ensemble import AdaBoostClassifier, BaggingClassifier, VotingClassifier
 from sklearn.metrics import (
     accuracy_score,
     f1_score,
@@ -13,72 +20,147 @@ from sklearn.metrics import (
 )
 from utils import get_embeddings, read_dataset
 
-# Constants and Hyperparameters
-LEVELS = ["easy", "medium", "hard"]
-TYPES_DATASETS = ["train", "test"]
-EPOCHS = 1
-BATCH_SIZE = 5
-N_REPETITIONS = 1
 
-n_layers = 1
-seed = 0
+def run_model_for_seed(
+    model: Type[Any],
+    x_train: np.ndarray,
+    y_train: np.ndarray,
+    x_test: np.ndarray,
+    y_test: np.ndarray,
+    level: str,
+    n_layers: int,
+    seed: int,
+    model_name: str,
+    results_path: Path,
+    epochs: int,
+    batch_size: int,
+) -> None:
+    """
+    Executes the given model with a specific random seed and saves its performance metrics.
 
-# Paths and random number generator
-paths = {"data": Path(__file__).parent.parent / "data"}
+    This function instantiates the model with the provided parameters, fits it on the training data,
+    predicts probabilities on the test data, computes various evaluation metrics, and saves these metrics
+    to a file in the results directory.
 
-# Load and embed dataset for each level
-dfs = {level: read_dataset(paths["data"], level) for level in LEVELS}
-dfs = get_embeddings(dfs, LEVELS, TYPES_DATASETS)
-for level in LEVELS:
-    x_train = np.array(dfs[level]["train"]["embeddings"], requires_grad=False)
-    y_train = np.array(dfs[level]["train"]["targets"], requires_grad=False)
-    x_test = np.array(dfs[level]["test"]["embeddings"], requires_grad=False)
-    y_test = np.array(dfs[level]["test"]["targets"], requires_grad=False)
+    Args:
+        model (Type[Any]): The classifier model class.
+        x_train (np.ndarray): The training feature matrix.
+        y_train (np.ndarray): The training target vector.
+        x_test (np.ndarray): The testing feature matrix.
+        y_test (np.ndarray): The testing target vector.
+        level (str): The dataset difficulty level (e.g., "easy", "medium", "hard").
+        n_layers (int): The number of layers used in the model.
+        seed (int): The random seed for reproducibility.
+        model_name (str): The name of the model, used when saving results.
+        results_path (Path): The directory where the results will be saved.
+        epochs (int): The number of training epochs.
+        batch_size (int): The size of the training batches.
 
-    for model in models:
-        model_name = model.__name__
-        for seed in range(N_REPETITIONS):
-            filename = f"{model_name}_{level}_{n_layers}_{seed}.pkl"
-            print(
-                f"Running {model_name} for {level} level with {n_layers} layers and seed {seed}."
+    Returns:
+        None
+    """
+    filename: str = f"{model_name}_{level}_{n_layers}_{seed}.pkl"
+    file_path: Path = results_path / filename
+
+    if file_path.exists():
+        return
+
+    print(
+        f"Running {model_name} for {level} level with {n_layers} layers and seed {seed}."
+    )
+
+    # Initialize and train the model
+    model_instance = model(
+        n_layers=n_layers,
+        max_iter=epochs,
+        batch_size=batch_size,
+        random_state=seed,
+    )
+    model_instance.fit(x_train, y_train)
+    y_pred = model_instance.predict_proba(x_test)[:, 1]
+
+    # Compute ROC curve and evaluation metrics
+    false_positive_rate, true_positive_rate, thresholds = roc_curve(y_test, y_pred)
+    y_pred_round = y_pred.round()
+    metrics: Dict[str, Any] = {
+        "accuracy": accuracy_score(y_test, y_pred_round),
+        "f1": f1_score(y_test, y_pred_round),
+        "precision": precision_score(y_test, y_pred_round),
+        "recall": recall_score(y_test, y_pred_round),
+        "false_positive_rate": false_positive_rate,
+        "true_positive_rate": true_positive_rate,
+        "thresholds": thresholds,
+        "loss_curve": getattr(model_instance, "loss_curve_", None),
+        "weights": getattr(model_instance, "weights_", None),
+        "biases": getattr(model_instance, "bias_", None),
+        "n_layers": getattr(model_instance, "n_layers", n_layers),
+        "epochs": getattr(model_instance, "max_iter", epochs),
+        "batch_size": getattr(model_instance, "batch_size", batch_size),
+        "level": level,
+        "seed": seed,
+        "y_pred": y_pred,
+    }
+
+    # Save the computed metrics to a file
+    with open(file_path, "wb") as f:
+        pickle.dump(metrics, f)
+
+
+def main() -> None:
+    """
+    Main function to execute parallel experiments on different datasets and models.
+
+    This function loads datasets for multiple difficulty levels, computes embeddings,
+    and runs several model evaluations in parallel using different random seeds.
+    The evaluation metrics for each model and seed are saved to disk.
+    """
+    # Constants and hyperparameters
+    LEVELS = ["easy", "medium", "hard"]
+    TYPES_DATASETS = ["train", "test"]
+    EPOCHS = 1
+    BATCH_SIZE = 5
+    N_REPETITIONS = 2
+    n_layers = 1
+
+    # Define paths for data and results
+    root_path: Path = Path(__file__).parent.parent.resolve()
+    data_path: Path = root_path / "data"
+    results_path: Path = root_path / "results"
+    results_path.mkdir(parents=True, exist_ok=True)
+
+    # Load datasets and compute embeddings for each level
+    datasets = {level: read_dataset(data_path, level) for level in LEVELS}
+    datasets = get_embeddings(datasets, LEVELS, TYPES_DATASETS)
+
+    # Iterate over each difficulty level and run each model with different seeds
+    for level in LEVELS:
+        x_train = np.array(datasets[level]["train"]["embeddings"], requires_grad=False)
+        y_train = np.array(datasets[level]["train"]["targets"], requires_grad=False)
+        x_test = np.array(datasets[level]["test"]["embeddings"], requires_grad=False)
+        y_test = np.array(datasets[level]["test"]["targets"], requires_grad=False)
+
+        for model in models:
+            model_name: str = model.__name__
+            Parallel(n_jobs=N_REPETITIONS)(
+                [
+                    delayed(run_model_for_seed)(
+                        model,
+                        x_train,
+                        y_train,
+                        x_test,
+                        y_test,
+                        level,
+                        n_layers,
+                        seed,
+                        model_name,
+                        results_path,
+                        EPOCHS,
+                        BATCH_SIZE,
+                    )
+                    for seed in range(N_REPETITIONS)
+                ]
             )
-            model = model(
-                n_layers=n_layers,
-                max_iter=EPOCHS,
-                batch_size=BATCH_SIZE,
-                random_state=seed,
-            )
-            model.fit(x_train, y_train)
-            y_pred = model.predict_proba(x_test)[:, 1]
 
-            # Metrics
-            false_positive_rate, true_positive_rate, threshold = roc_curve(
-                y_test, y_pred
-            )
-            y_prend_round = y_pred.round()
-            metrics = {
-                "accuracy": accuracy_score(y_test, y_prend_round),
-                "f1": f1_score(y_test, y_prend_round),
-                "precision": precision_score(y_test, y_prend_round),
-                "recall": recall_score(y_test, y_prend_round),
-                "false_positive_rate": false_positive_rate,
-                "true_positive_rate": true_positive_rate,
-                "threshold": threshold,
-                "loss_curve": model.loss_curve_,
-                "weights": model.weights_,
-                "biases": model.bias_,
-                "n_layers": model.n_layers,
-                "epochs": model.max_iter,
-                "batch_size": model.batch_size,
-                "level": level,
-                "seed": seed,
-            }
 
-# qvc2 = Ansatz1(n_layers=10, max_iter=1, batch_size=20, random_state=0)
-# ensemble = AdaBoostClassifier(estimator=qvc1, n_estimators=10, random_state=0)
-# ensemble = BaggingClassifier(
-#     estimator=qvc1, n_estimators=2, random_state=0, max_features=0.8, max_samples=0.8
-# )
-# estimators = [("qvc1", qvc1), ("qvc2", qvc2)]
-# ensemble = VotingClassifier(estimators=estimators, voting="soft")
-# ensemble = VotingClassifier(estimators=estimators, voting="hard")
+if __name__ == "__main__":
+    main()

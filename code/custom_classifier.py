@@ -1,3 +1,9 @@
+"""
+This module implements a Variational Quantum Classifier (QVC) using PennyLane.
+The classifier is compatible with scikit-learn's estimator API and supports several
+ansatz implementations for variational quantum circuits.
+"""
+
 import operator
 from functools import reduce
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -21,11 +27,11 @@ DataDict = Dict[str, DatasetType]
 
 class BaseQVC(ClassifierMixin, BaseEstimator):
     """
-    Variational Quantum Classifier (QVC)
+    Variational Quantum Classifier (QVC).
 
-    This classifier implements a variational quantum circuit using PennyLane and is
-    compatible with scikit-learn's estimator API. It can be used as a base estimator,
-    for example, with the AdaBoostClassifier.
+    This classifier implements a variational quantum circuit using PennyLane and adheres
+    to scikit-learn's estimator API. It can be employed as a base estimator, for instance,
+    with ensemble methods such as AdaBoostClassifier.
 
     Attributes:
         n_layers (int): Number of layers in the variational circuit.
@@ -34,8 +40,8 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         random_state (Optional[Any]): Seed or random state for reproducibility.
     """
 
-    multi_class = False
-    _estimator_type = "classifier"
+    multi_class: bool = False
+    _estimator_type: str = "classifier"
 
     def __init__(
         self,
@@ -83,23 +89,23 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
             sample_weight = np.array(sample_weight, dtype=float)
             if sample_weight.shape[0] != X.shape[0]:
                 raise ValueError(
-                    "sample_weight must have the same number of samples as X and y"
+                    "sample_weight must have the same number of samples as X and y."
                 )
 
         self.n_qubits_ = self.get_n_qubits(X)
         self.device_ = qml.device("default.qubit", wires=self.n_qubits_)
 
-        # Store the classes observed during fitting
+        # Store the classes observed during fitting.
         self.classes_ = unique_labels(y)
         self.random_state_ = check_random_state(self.random_state)
 
+        # Initialize optimizer.
         opt = NesterovMomentumOptimizer(0.01)
 
         self.weights_ = self.get_weights()
         self.bias_ = np.array(0.0, requires_grad=True)
 
         self.loss_curve_ = []
-
         len_train: int = X.shape[0]
 
         for n_iter in range(1, self.max_iter + 1):
@@ -120,22 +126,31 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
                     sw_batch: np.ndarray = np.array(
                         sample_weight[batch_indices], requires_grad=False, dtype=float
                     )
-                    self.weights_, self.bias_, _, _, _ = opt.step(
+                    (
+                        self.weights_,
+                        self.bias_,
+                        _,
+                        _,
+                        _,
+                    ) = opt.step(
                         self.cost, self.weights_, self.bias_, x_batch, y_batch, sw_batch
                     )
                 else:
-                    self.weights_, self.bias_, _, _ = opt.step(
-                        self.cost, self.weights_, self.bias_, x_batch, y_batch
-                    )
+                    (
+                        self.weights_,
+                        self.bias_,
+                        _,
+                        _,
+                    ) = opt.step(self.cost, self.weights_, self.bias_, x_batch, y_batch)
 
             if sample_weight is not None:
                 train_cost: float = self.cost(
                     self.weights_, self.bias_, X, y, sample_weight
                 )
             else:
-                train_cost: float = self.cost(self.weights_, self.bias_, X, y)
+                train_cost = self.cost(self.weights_, self.bias_, X, y)
             self.loss_curve_.append(train_cost)
-            print("Epoch: {:5d} | Training Cost: {:0.7f}".format(n_iter, train_cost))
+            print(f"Epoch: {n_iter:5d} | Training Cost: {train_cost:0.7f}")
 
         return self
 
@@ -147,7 +162,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
             y_true (Union[np.ndarray, List[int]]): Original labels.
 
         Returns:
-            np.ndarray: Transformed labels.
+            np.ndarray: Transformed labels with values -1 and 1.
         """
         unique_labels_arr: np.ndarray = np.sort(np.unique(y_true))
         mapping: Dict[int, int] = {
@@ -181,7 +196,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
             X (np.ndarray): Input feature matrix.
 
         Returns:
-            int: Number of qubits.
+            int: Number of qubits, computed as the ceiling of log2(number of features).
         """
         return int(np.ceil(np.log2(X.shape[1])))
 
@@ -193,7 +208,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
             X (np.ndarray): Input feature matrix.
 
         Returns:
-            np.ndarray: Predicted class labels.
+            np.ndarray: Predicted class labels in their original representation.
         """
         check_is_fitted(self, ["weights_", "bias_"])
         X = validate_data(self, X, reset=False)
@@ -218,7 +233,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         X = validate_data(self, X, reset=False)
         X = np.array(X, requires_grad=False, dtype=float)
         output: np.ndarray = self.variational_classifier(self.weights_, self.bias_, X)
-        output = (1 + output) / 2
+        output = (1 + output) / 2  # Normalize output to [0, 1]
         return np.column_stack([1 - output, output])
 
     def variational_classifier(
@@ -230,10 +245,10 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         Args:
             weights (np.ndarray): Weights for the quantum gates.
             bias (float): Bias term to be added to the circuit's output.
-            x (np.ndarray): Input features to be embedded into the quantum circuit.
+            x (np.ndarray): Input features embedded into the quantum circuit.
 
         Returns:
-            np.ndarray: Output of the variational quantum classifier.
+            np.ndarray: The output of the variational quantum classifier.
         """
 
         @qml.qnode(self.device_, interface="autograd")
@@ -246,15 +261,16 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
                 x (np.ndarray): Input features for the quantum circuit.
 
             Returns:
-                float: Expectation value of the PauliZ operator from the circuit.
+                float: Expectation value of the observable (product of PauliZ operators).
             """
             wires = range(self.n_qubits_)
             qml.AmplitudeEmbedding(
                 features=x, wires=wires, normalize=True, pad_with=0.0
             )
             self.ansatz(weights, wires, self.n_layers)
-            result = reduce(operator.matmul, [qml.PauliZ(i) for i in wires])
-            return qml.expval(result)
+            # Compute the product of PauliZ measurements over all wires.
+            observable = reduce(operator.matmul, [qml.PauliZ(i) for i in wires])
+            return qml.expval(observable)
 
         return quantum_circuit(weights, x) + bias
 
@@ -350,64 +366,135 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         predictions = np.array(predictions)
         return float(np.mean(np.abs(labels - predictions) < 1e-5))
 
-    def get_weights(self) -> Tuple[np.ndarray, float]:
+    def get_weights(self) -> np.ndarray:
         """
         Initialize the weights for the quantum circuit.
 
+        This method should be implemented by subclasses.
+
         Returns:
-            Tuple[np.ndarray, float]: Initial weights and bias.
+            np.ndarray: Initial weights for the variational quantum circuit.
         """
-        raise NotImplementedError("Subclasses must implement this method.")
+        raise NotImplementedError("Subclasses must implement the get_weights method.")
 
     def ansatz(
         self, weights: np.ndarray, wires: Union[List[int], range], n_layers: int
     ) -> None:
-        raise NotImplementedError("Subclasses must implement this method.")
+        """
+        Construct the variational ansatz (quantum circuit) for the classifier.
+
+        This method should be implemented by subclasses to define the specific quantum circuit.
+
+        Args:
+            weights (np.ndarray): Weights for the quantum gates.
+            wires (Union[List[int], range]): The wires on which to apply the circuit.
+            n_layers (int): The number of layers in the circuit.
+
+        Returns:
+            None
+        """
+        raise NotImplementedError("Subclasses must implement the ansatz method.")
 
 
 class AnsatzSingleRot(BaseQVC):
-    _gate = None
+    """
+    Variational Quantum Classifier with a single rotation gate ansatz.
 
-    def get_weights(self) -> Tuple[np.ndarray, float]:
+    This base class uses a single rotation gate (to be defined by subclasses) on each qubit.
+    """
+
+    _gate: Optional[Any] = None
+
+    def get_weights(self) -> np.ndarray:
+        """
+        Initialize the weights for the single rotation ansatz.
+
+        Returns:
+            np.ndarray: Initial weights with shape (n_layers, n_qubits, 1).
+        """
         weights = 0.01 * self.random_state_.normal(
             size=(self.n_layers, self.n_qubits_, 1)
         )
-        weights = np.array(weights, requires_grad=True)
-        return weights
+        return np.array(weights, requires_grad=True)
 
     def ansatz(
         self, weights: np.ndarray, wires: Union[List[int], range], n_layers: int
     ) -> None:
+        """
+        Apply the single rotation gate ansatz to the quantum circuit.
+
+        Args:
+            weights (np.ndarray): Weights for the rotation gates.
+            wires (Union[List[int], range]): The wires on which to apply the gates.
+            n_layers (int): The number of layers in the circuit.
+
+        Returns:
+            None
+        """
         if self._gate is None:
-            raise NotImplementedError("Subclasses must implement this method.")
+            raise NotImplementedError(
+                "Subclasses must define the rotation gate (_gate)."
+            )
         for n_layer in range(n_layers):
             for wire in wires:
                 self._gate(weights[n_layer, wire, 0], wires=wire)
 
 
 class AnsatzSingleRotX(AnsatzSingleRot):
+    """
+    Variational Quantum Classifier with a single RX rotation gate.
+    """
+
     _gate = qml.RX
 
 
 class AnsatzSingleRotY(AnsatzSingleRot):
+    """
+    Variational Quantum Classifier with a single RY rotation gate.
+    """
+
     _gate = qml.RY
 
 
 class AnsatzSingleRotZ(AnsatzSingleRot):
+    """
+    Variational Quantum Classifier with a single RZ rotation gate.
+    """
+
     _gate = qml.RZ
 
 
 class AnsatzRot(BaseQVC):
-    def get_weights(self) -> Tuple[np.ndarray, float]:
+    """
+    Variational Quantum Classifier using a general rotation (Rot) gate ansatz.
+    """
+
+    def get_weights(self) -> np.ndarray:
+        """
+        Initialize the weights for the Rot ansatz.
+
+        Returns:
+            np.ndarray: Initial weights with shape (n_layers, n_qubits, 3).
+        """
         weights = 0.01 * self.random_state_.normal(
             size=(self.n_layers, self.n_qubits_, 3)
         )
-        weights = np.array(weights, requires_grad=True)
-        return weights
+        return np.array(weights, requires_grad=True)
 
     def ansatz(
         self, weights: np.ndarray, wires: Union[List[int], range], n_layers: int
     ) -> None:
+        """
+        Apply the Rot ansatz to the quantum circuit.
+
+        Args:
+            weights (np.ndarray): Weights for the rotation gates.
+            wires (Union[List[int], range]): The wires on which to apply the rotations.
+            n_layers (int): The number of layers in the circuit.
+
+        Returns:
+            None
+        """
         for n_layer in range(n_layers):
             for wire in wires:
                 qml.Rot(
@@ -419,19 +506,40 @@ class AnsatzRot(BaseQVC):
 
 
 class AnsatzRotCNOT(BaseQVC):
-    def get_weights(self) -> Tuple[np.ndarray, float]:
+    """
+    Variational Quantum Classifier using strongly entangling layers with CNOT gates.
+    """
+
+    def get_weights(self) -> np.ndarray:
+        """
+        Initialize the weights for the strongly entangling layers.
+
+        Returns:
+            np.ndarray: Initial weights with shape (n_layers, n_qubits, 3).
+        """
         weights = 0.01 * self.random_state_.normal(
             size=(self.n_layers, self.n_qubits_, 3)
         )
-        weights = np.array(weights, requires_grad=True)
-        return weights
+        return np.array(weights, requires_grad=True)
 
     def ansatz(
         self, weights: np.ndarray, wires: Union[List[int], range], n_layers: int
     ) -> None:
+        """
+        Apply strongly entangling layers to the quantum circuit.
+
+        Args:
+            weights (np.ndarray): Weights for the entangling layers.
+            wires (Union[List[int], range]): The wires on which to apply the layers.
+            n_layers (int): The number of layers in the circuit.
+
+        Returns:
+            None
+        """
         qml.StronglyEntanglingLayers(weights, wires=wires)
 
 
+# List of available QVC models with different ansatz implementations.
 models = [
     AnsatzSingleRotX,
     AnsatzSingleRotY,
