@@ -95,7 +95,9 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
 
         opt = NesterovMomentumOptimizer(0.01)
 
-        self.weights_, self.bias_ = self.get_weights_biases()
+        self.weights_ = self.get_weights()
+
+        self.bias_ = np.array(0.0, requires_grad=True)
 
         len_train: int = X.shape[0]
 
@@ -248,7 +250,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
             qml.AmplitudeEmbedding(
                 features=x, wires=wires, normalize=True, pad_with=0.0
             )
-            self.ansatz(weights, wires)
+            self.ansatz(weights, wires, self.n_layers)
             result = reduce(operator.matmul, [qml.PauliZ(i) for i in wires])
             return qml.expval(result)
 
@@ -346,27 +348,83 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         predictions = np.array(predictions)
         return float(np.mean(np.abs(labels - predictions) < 1e-5))
 
-    def get_weights_biases(self) -> Tuple[np.ndarray, float]:
+    def get_weights(self) -> Tuple[np.ndarray, float]:
         """
-        Initialize the weights and biases for the quantum circuit.
+        Initialize the weights for the quantum circuit.
 
         Returns:
             Tuple[np.ndarray, float]: Initial weights and bias.
         """
         raise NotImplementedError("Subclasses must implement this method.")
 
-    def ansatz(self, weights: np.ndarray, wires: List[int]) -> None:
+    def ansatz(
+        self, weights: np.ndarray, wires: Union[List[int], range], n_layers: int
+    ) -> None:
         raise NotImplementedError("Subclasses must implement this method.")
 
 
-class Ansatz1(BaseQVC):
-    def get_weights_biases(self) -> Tuple[np.ndarray, float]:
+class AnsatzSingleRot(BaseQVC):
+    _gate = None
+
+    def get_weights(self) -> Tuple[np.ndarray, float]:
+        weights = 0.01 * self.random_state_.normal(
+            size=(self.n_layers, self.n_qubits_, 1)
+        )
+        weights = np.array(weights, requires_grad=True)
+        return weights
+
+    def ansatz(
+        self, weights: np.ndarray, wires: Union[List[int], range], n_layers: int
+    ) -> None:
+        if self._gate is None:
+            raise NotImplementedError("Subclasses must implement this method.")
+        for n_layer in range(n_layers):
+            for wire in wires:
+                self._gate(weights[n_layer, wire, 0], wires=wire)
+
+
+class AnsatzSingleRotX(AnsatzSingleRot):
+    _gate = qml.RX
+
+
+class AnsatzSingleRotY(AnsatzSingleRot):
+    _gate = qml.RY
+
+
+class AnsatzSingleRotZ(AnsatzSingleRot):
+    _gate = qml.RZ
+
+
+class AnsatzRot(BaseQVC):
+    def get_weights(self) -> Tuple[np.ndarray, float]:
         weights = 0.01 * self.random_state_.normal(
             size=(self.n_layers, self.n_qubits_, 3)
         )
         weights = np.array(weights, requires_grad=True)
-        bias = np.array(0.0, requires_grad=True)
-        return weights, bias
+        return weights
 
-    def ansatz(self, weights: np.ndarray, wires: List[int]) -> None:
+    def ansatz(
+        self, weights: np.ndarray, wires: Union[List[int], range], n_layers: int
+    ) -> None:
+        for n_layer in range(n_layers):
+            for wire in wires:
+                qml.Rot(
+                    weights[n_layer, wire, 0],
+                    weights[n_layer, wire, 1],
+                    weights[n_layer, wire, 2],
+                    wires=wire,
+                )
+
+
+class AnsatzRotCNOT(BaseQVC):
+    def get_weights(self) -> Tuple[np.ndarray, float]:
+        weights = 0.01 * self.random_state_.normal(
+            size=(self.n_layers, self.n_qubits_, 3)
+        )
+        weights = np.array(weights, requires_grad=True)
+        return weights
+
+    def ansatz(
+        self, weights: np.ndarray, wires: Union[List[int], range], n_layers: int
+    ) -> None:
         qml.StronglyEntanglingLayers(weights, wires=wires)
