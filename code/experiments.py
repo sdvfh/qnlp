@@ -36,7 +36,7 @@ def run_model_for_seed(
     batch_size: int,
 ) -> None:
     """
-    Executes the given model with a specific random seed and saves its performance metrics.
+    Execute the given model with a specific random seed and save its performance metrics.
 
     This function instantiates the model with the provided parameters, fits it on the training data,
     predicts probabilities on the test data, computes various evaluation metrics, and saves these metrics
@@ -115,12 +115,12 @@ def main() -> None:
     The evaluation metrics for each model and seed are saved to disk.
     """
     # Constants and hyperparameters
-    LEVELS = ["easy", "medium", "hard"]
-    TYPES_DATASETS = ["train", "test"]
-    EPOCHS = 1
-    BATCH_SIZE = 5
-    N_REPETITIONS = 2
-    n_layers = 1
+    levels = ["easy", "medium", "hard"]
+    type_datasets = ["train", "test"]
+    epochs = 100
+    batch_size = 5
+    n_repetitions = 30
+    n_layers_list = [1, 10]
 
     # Define paths for data and results
     root_path: Path = Path(__file__).parent.parent.resolve()
@@ -129,34 +129,39 @@ def main() -> None:
     results_path.mkdir(parents=True, exist_ok=True)
 
     # Load datasets and compute embeddings for each level
-    datasets = {level: read_dataset(data_path, level) for level in LEVELS}
-    datasets = get_embeddings(datasets, LEVELS, TYPES_DATASETS)
+    datasets = {level: read_dataset(data_path, level) for level in levels}
+    datasets = get_embeddings(datasets, levels, type_datasets)
 
-    # Iterate over each difficulty level and run each model with different seeds
-    for level in LEVELS:
-        x_train = np.array(datasets[level]["train"]["embeddings"], requires_grad=False)
-        y_train = np.array(datasets[level]["train"]["targets"], requires_grad=False)
-        x_test = np.array(datasets[level]["test"]["embeddings"], requires_grad=False)
-        y_test = np.array(datasets[level]["test"]["targets"], requires_grad=False)
+    # Iterate over each number of layers and difficulty level to run model evaluations in parallel
+    for n_layer in n_layers_list:
+        for level in levels:
+            x_train = np.array(
+                datasets[level]["train"]["embeddings"], requires_grad=False
+            )
+            y_train = np.array(datasets[level]["train"]["targets"], requires_grad=False)
+            x_test = np.array(
+                datasets[level]["test"]["embeddings"], requires_grad=False
+            )
+            y_test = np.array(datasets[level]["test"]["targets"], requires_grad=False)
 
-        Parallel(n_jobs=-1)(
-            [
-                delayed(run_model_for_seed)(
-                    model,
-                    x_train,
-                    y_train,
-                    x_test,
-                    y_test,
-                    level,
-                    n_layers,
-                    seed,
-                    results_path,
-                    EPOCHS,
-                    BATCH_SIZE,
-                )
-                for model, seed in product(models, range(N_REPETITIONS))
-            ]
-        )
+            Parallel(n_jobs=-1)(
+                [
+                    delayed(run_model_for_seed)(
+                        model,
+                        x_train,
+                        y_train,
+                        x_test,
+                        y_test,
+                        level,
+                        n_layer,
+                        seed,
+                        results_path,
+                        epochs,
+                        batch_size,
+                    )
+                    for model, seed in product(models, range(n_repetitions))
+                ]
+            )
 
 
 if __name__ == "__main__":

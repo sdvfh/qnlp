@@ -105,7 +105,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         self.weights_ = self.get_weights()
         self.bias_ = np.array(0.0, requires_grad=True)
 
-        self.loss_curve_ = []
+        self.loss_curve_ = [self.compute_train_cost(X, y, sample_weight)]
         len_train: int = X.shape[0]
 
         for n_iter in range(1, self.max_iter + 1):
@@ -143,16 +143,39 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
                         _,
                     ) = opt.step(self.cost, self.weights_, self.bias_, x_batch, y_batch)
 
-            if sample_weight is not None:
-                train_cost: float = self.cost(
-                    self.weights_, self.bias_, X, y, sample_weight
-                )
-            else:
-                train_cost = self.cost(self.weights_, self.bias_, X, y)
+            train_cost = self.compute_train_cost(X, y, sample_weight)
             self.loss_curve_.append(train_cost)
             print(f"Epoch: {n_iter:5d} | Training Cost: {train_cost:0.7f}")
 
         return self
+
+    def compute_train_cost(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        sample_weight: Optional[Union[np.ndarray, List[float]]] = None,
+    ) -> float:
+        """
+        Compute the training cost using the current model parameters on the provided dataset.
+
+        This method calculates the cost (loss) of the model on the training data. If sample weights
+        are provided, they are incorporated into the cost calculation.
+
+        Args:
+            X (np.ndarray): The training feature matrix.
+            y (np.ndarray): The training target vector.
+            sample_weight (Optional[Union[np.ndarray, List[float]]]): Optional sample weights for each training instance.
+
+        Returns:
+            float: The computed training cost.
+        """
+        if sample_weight is not None:
+            train_cost: float = self.cost(
+                self.weights_, self.bias_, X, y, sample_weight
+            )
+        else:
+            train_cost = self.cost(self.weights_, self.bias_, X, y)
+        return train_cost
 
     def transform_y(self, y_true: Union[np.ndarray, List[int]]) -> np.ndarray:
         """
