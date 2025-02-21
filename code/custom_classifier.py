@@ -6,10 +6,12 @@ ansatz implementations for variational quantum circuits.
 
 import operator
 from functools import reduce
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import pennylane as qml
+import scipy.linalg as la
 from pennylane import numpy as np
+from pennylane.operation import Operation
 from pennylane.optimize import NesterovMomentumOptimizer
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.utils.multiclass import unique_labels
@@ -23,6 +25,7 @@ from sklearn.utils.validation import (
 # Define type aliases for clarity
 DatasetType = Dict[str, Union[List[str], np.ndarray, Any]]
 DataDict = Dict[str, DatasetType]
+SizeType = Union[int, Tuple["SizeType", ...]]
 
 
 class BaseQVC(ClassifierMixin, BaseEstimator):
@@ -400,9 +403,10 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         """
         raise NotImplementedError("Subclasses must implement the get_weights method.")
 
-    def ansatz(
-        self, weights: np.ndarray, wires: Union[List[int], range], n_layers: int
-    ) -> None:
+    def get_weights_size(self):
+        raise NotImplementedError("Subclasses must implement the get_weights method.")
+
+    def ansatz(self, weights: np.ndarray, n_layers: int) -> None:
         """
         Construct the variational ansatz (quantum circuit) for the classifier.
 
@@ -410,13 +414,179 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
 
         Args:
             weights (np.ndarray): Weights for the quantum gates.
-            wires (Union[List[int], range]): The wires on which to apply the circuit.
             n_layers (int): The number of layers in the circuit.
 
         Returns:
             None
         """
         raise NotImplementedError("Subclasses must implement the ansatz method.")
+
+    @staticmethod
+    def random_unitary(n: int) -> np.ndarray:
+        """
+        Returns a Haar-distributed random unitary matrix from U(N).
+
+        Args:
+            n (int): The dimension of the unitary matrix.
+
+        Returns:
+            np.ndarray: A Haar-distributed random unitary matrix of shape (N, N).
+        """
+        # Generate a random complex matrix.
+        z = np.random.randn(n, n) + 1.0j * np.random.randn(n, n)
+        q, r = la.qr(z)
+        d = np.diag(np.diagonal(r) / np.abs(np.diagonal(r)))
+        return np.dot(q, d)
+
+    def haar_integral(self, num_qubits: int, samples: int = 2048) -> np.ndarray:
+        """
+        Computes the Haar integral for a specified number of samples by approximating
+        the average density matrix over random unitary transformations.
+
+        Args:
+            num_qubits (int): The number of qubits (the Hilbert space dimension is 2**num_qubits).
+            samples (int): The number of samples to average over.
+
+        Returns:
+            np.ndarray: The averaged density matrix computed from Haar-distributed unitaries.
+        """
+        n: int = 2**num_qubits
+        zero_state: np.ndarray = np.zeros(n, dtype=complex)
+        zero_state[0] = 1.0
+
+        density_matrices = []
+        for _ in range(samples):
+            u = self.random_unitary(n)
+            # Embed the zero state into the unitary transformation.
+            a = np.matmul(zero_state, u).reshape(-1, 1)
+            density_matrices.append(np.kron(a, a.conj().T))
+
+        return np.mean(density_matrices, axis=0)
+
+    def pqc_integral(
+        self,
+        n_qubits: int,
+        samples: int = 2048,
+    ) -> np.ndarray:
+        """
+        Computes the integral of a Parameterized Quantum Circuit (PQC) over uniformly sampled parameters.
+
+        This function samples parameters uniformly from the interval [-π, π], applies the given ansatze to prepare
+        a quantum state, and computes the density matrix |ψ⟩⟨ψ| for that state. The result is the average density
+        matrix over the specified number of samples.
+
+        Args:
+            n_qubits (int): The number of qubits in the circuit.
+            ansatze (Callable[[np.ndarray, int], None]): A function that applies the ansatz circuit given parameters
+                and the number of qubits.
+            size (int): The number of parameters for the ansatz.
+            samples (int): The number of samples over which to average.
+
+        Returns:
+            np.ndarray: The averaged density matrix of shape (2**num_qubits, 2**num_qubits).
+        """
+        # Initialize a PennyLane device for simulation.
+        dev = qml.device("default.qubit", wires=n_qubits)
+
+        @qml.qnode(dev, interface="autograd")
+        def circuit(params: np.ndarray) -> np.ndarray:
+            self.ansatz(params, self.n_layers)
+            return qml.state()
+
+        # Collect density matrices in a list for each sample.
+        density_matrices = []
+        for _ in range(samples):
+            parameters = self.random_state_.uniform(
+                -np.pi, np.pi, self.get_weights_size()
+            )
+            state = circuit(parameters).reshape(-1, 1)
+            density = np.kron(state, state.conj().T)
+            density_matrices.append(density)
+
+        # Compute the mean of all density matrices along axis 0.
+        return np.mean(density_matrices, axis=0)
+
+    def haar(self, n_qubits, samples):
+        self.n_qubits_ = n_qubits
+        haar_value = self.haar_integral(n_qubits, samples)
+        pqc_value = self.pqc_integral(n_qubits, samples)
+        return np.linalg.norm(haar_value - pqc_value)
+
+    def meyer_wallach(
+        self,
+        n_qubits: int,
+        samples: int = 2048,
+    ) -> float:
+        """
+        Computes the Meyer–Wallach entanglement measure for a given parameterized quantum circuit
+        using PennyLane. This optimized version passes all parameter samples at once to the ansatz
+        and leverages NumPy's vectorized operations for density matrix construction and purity calculation.
+
+        Procedure:
+          1. Generate a batch of 'sample' parameter sets with shape (sample, *size) sampled uniformly from [-π, π].
+          2. Evaluate the circuit on all parameter sets simultaneously to obtain a batch of state vectors.
+          3. Construct the batch of density matrices ρ = |ψ⟩⟨ψ| using a vectorized outer product.
+          4. For each qubit, compute the reduced density matrices (via partial trace) for all samples at once.
+          5. Calculate the purity of each reduced density matrix and average over all qubits.
+          6. The Meyer–Wallach measure is 2 times the average over samples of (1 - average purity).
+
+        Args:
+            circuit: A function implementing the ansatz, which accepts parameters and the number of qubits.
+            n_qubits (int): The number of qubits in the circuit.
+            size (int or Tuple): The number (or shape) of parameters required by the ansatz.
+            samples (int): The number of samples (executions with random parameters) for averaging.
+
+        Returns:
+            float: The Meyer–Wallach entanglement measure.
+        """
+        self.n_qubits_ = n_qubits
+        dev = qml.device("default.qubit", wires=n_qubits)
+
+        @qml.qnode(dev, interface="autograd")
+        def circuit(params: np.ndarray) -> np.ndarray:
+            self.ansatz(params, self.n_layers)
+            return qml.state()
+
+        # Generate all parameter samples at once: shape (sample, *size)
+        parameters = np.random.uniform(
+            -np.pi, np.pi, (samples, *self.get_weights_size())
+        )
+        # Evaluate the circuit in batch mode to obtain state vectors.
+        # Assumes that state_circuit supports batch processing (returns an array of shape (sample, dim)).
+        states = circuit(parameters)
+        if states.shape != (samples, 2**n_qubits):
+            states = np.repeat(states[np.newaxis, :], samples, axis=0)
+
+        # Compute the batch of density matrices via vectorized outer product:
+        # density_matrices[i] = |ψ_i⟩⟨ψ_i| for each sample i.
+        density_matrices = np.einsum("bi,bj->bij", states, states.conj())
+
+        qb = list(range(n_qubits))
+        # Initialize an array to accumulate purity values for each sample.
+        purity_sum = np.zeros(samples, dtype=complex)
+
+        # Loop over qubit indices (usually a small number) to compute reduced density matrices.
+        for j in qb:
+            indices_to_trace = qb.copy()
+            indices_to_trace.remove(j)
+            # Compute the reduced density matrices for qubit j in batch.
+            # qml.math.partial_trace accepts a batch of density matrices with shape (sample, dim, dim).
+            reduced_density = qml.math.partial_trace(
+                density_matrices, indices=indices_to_trace
+            )
+            # 'reduced_density' now has shape (sample, 2, 2).
+            # Compute the purity for each sample: Tr((ρ_reduced)²).
+            prod = np.matmul(reduced_density, reduced_density)
+            purity_j = np.trace(prod, axis1=1, axis2=2)
+            purity_sum += purity_j
+
+        # Average the purity over all qubits for each sample.
+        avg_purity_per_sample = purity_sum / n_qubits
+        # The entanglement measure for each sample is 1 minus the average purity.
+        entanglement_values = 1 - avg_purity_per_sample.real
+        # The Meyer–Wallach measure is 2 times the average entanglement value over all samples.
+        measure = 2 * np.mean(entanglement_values)
+        return measure
 
 
 class AnsatzSingleRot(BaseQVC):
@@ -435,20 +605,18 @@ class AnsatzSingleRot(BaseQVC):
         Returns:
             np.ndarray: Initial weights with shape (n_layers, n_qubits, 1).
         """
-        weights = 0.01 * self.random_state_.normal(
-            size=(self.n_layers, self.n_qubits_, 1)
-        )
+        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
         return np.array(weights, requires_grad=True)
 
-    def ansatz(
-        self, weights: np.ndarray, wires: Union[List[int], range], n_layers: int
-    ) -> None:
+    def get_weights_size(self):
+        return self.n_layers, self.n_qubits_, 1
+
+    def ansatz(self, weights: np.ndarray, n_layers: int) -> None:
         """
         Apply the single rotation gate ansatz to the quantum circuit.
 
         Args:
             weights (np.ndarray): Weights for the rotation gates.
-            wires (Union[List[int], range]): The wires on which to apply the gates.
             n_layers (int): The number of layers in the circuit.
 
         Returns:
@@ -459,7 +627,7 @@ class AnsatzSingleRot(BaseQVC):
                 "Subclasses must define the rotation gate (_gate)."
             )
         for n_layer in range(n_layers):
-            for wire in wires:
+            for wire in range(self.n_qubits_):
                 self._gate(weights[n_layer, wire, 0], wires=wire)
 
 
@@ -499,27 +667,25 @@ class AnsatzRot(BaseQVC):
         Returns:
             np.ndarray: Initial weights with shape (n_layers, n_qubits, 3).
         """
-        weights = 0.01 * self.random_state_.normal(
-            size=(self.n_layers, self.n_qubits_, 3)
-        )
+        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
         return np.array(weights, requires_grad=True)
 
-    def ansatz(
-        self, weights: np.ndarray, wires: Union[List[int], range], n_layers: int
-    ) -> None:
+    def get_weights_size(self):
+        return self.n_layers, self.n_qubits_, 3
+
+    def ansatz(self, weights: np.ndarray, n_layers: int) -> None:
         """
         Apply the Rot ansatz to the quantum circuit.
 
         Args:
             weights (np.ndarray): Weights for the rotation gates.
-            wires (Union[List[int], range]): The wires on which to apply the rotations.
             n_layers (int): The number of layers in the circuit.
 
         Returns:
             None
         """
         for n_layer in range(n_layers):
-            for wire in wires:
+            for wire in range(self.n_qubits_):
                 qml.Rot(
                     weights[n_layer, wire, 0],
                     weights[n_layer, wire, 1],
@@ -540,14 +706,13 @@ class AnsatzRotCNOT(BaseQVC):
         Returns:
             np.ndarray: Initial weights with shape (n_layers, n_qubits, 3).
         """
-        weights = 0.01 * self.random_state_.normal(
-            size=(self.n_layers, self.n_qubits_, 3)
-        )
+        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
         return np.array(weights, requires_grad=True)
 
-    def ansatz(
-        self, weights: np.ndarray, wires: Union[List[int], range], n_layers: int
-    ) -> None:
+    def get_weights_size(self):
+        return self.n_layers, self.n_qubits_, 3
+
+    def ansatz(self, weights: np.ndarray, n_layers: int) -> None:
         """
         Apply strongly entangling layers to the quantum circuit.
 
@@ -559,7 +724,7 @@ class AnsatzRotCNOT(BaseQVC):
         Returns:
             None
         """
-        qml.StronglyEntanglingLayers(weights, wires=wires)
+        qml.StronglyEntanglingLayers(weights, wires=range(self.n_qubits_))
 
 
 # List of available QVC models with different ansatz implementations.
