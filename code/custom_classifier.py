@@ -465,7 +465,6 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
 
     def pqc_integral(
         self,
-        n_qubits: int,
         samples: int = 2048,
     ) -> np.ndarray:
         """
@@ -476,7 +475,6 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         matrix over the specified number of samples.
 
         Args:
-            n_qubits (int): The number of qubits in the circuit.
             ansatze (Callable[[np.ndarray, int], None]): A function that applies the ansatz circuit given parameters
                 and the number of qubits.
             size (int): The number of parameters for the ansatz.
@@ -486,7 +484,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
             np.ndarray: The averaged density matrix of shape (2**num_qubits, 2**num_qubits).
         """
         # Initialize a PennyLane device for simulation.
-        dev = qml.device("default.qubit", wires=n_qubits)
+        dev = qml.device("default.qubit", wires=self.n_qubits_)
 
         @qml.qnode(dev, interface="autograd")
         def circuit(params: np.ndarray) -> np.ndarray:
@@ -506,15 +504,13 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         # Compute the mean of all density matrices along axis 0.
         return np.mean(density_matrices, axis=0)
 
-    def haar(self, n_qubits, samples):
-        self.n_qubits_ = n_qubits
-        haar_value = self.haar_integral(n_qubits, samples)
-        pqc_value = self.pqc_integral(n_qubits, samples)
+    def haar(self, samples):
+        haar_value = self.haar_integral(samples)
+        pqc_value = self.pqc_integral(samples)
         return np.linalg.norm(haar_value - pqc_value)
 
     def meyer_wallach(
         self,
-        n_qubits: int,
         samples: int = 2048,
     ) -> float:
         """
@@ -531,16 +527,12 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
           6. The Meyer–Wallach measure is 2 times the average over samples of (1 - average purity).
 
         Args:
-            circuit: A function implementing the ansatz, which accepts parameters and the number of qubits.
-            n_qubits (int): The number of qubits in the circuit.
-            size (int or Tuple): The number (or shape) of parameters required by the ansatz.
             samples (int): The number of samples (executions with random parameters) for averaging.
 
         Returns:
             float: The Meyer–Wallach entanglement measure.
         """
-        self.n_qubits_ = n_qubits
-        dev = qml.device("default.qubit", wires=n_qubits)
+        dev = qml.device("default.qubit", wires=self.n_qubits_)
 
         @qml.qnode(dev, interface="autograd")
         def circuit(params: np.ndarray) -> np.ndarray:
@@ -554,14 +546,14 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         # Evaluate the circuit in batch mode to obtain state vectors.
         # Assumes that state_circuit supports batch processing (returns an array of shape (sample, dim)).
         states = circuit(parameters)
-        if states.shape != (samples, 2**n_qubits):
+        if states.shape != (samples, 2**self.n_qubits_):
             states = np.repeat(states[np.newaxis, :], samples, axis=0)
 
         # Compute the batch of density matrices via vectorized outer product:
         # density_matrices[i] = |ψ_i⟩⟨ψ_i| for each sample i.
         density_matrices = np.einsum("bi,bj->bij", states, states.conj())
 
-        qb = list(range(n_qubits))
+        qb = list(range(self.n_qubits_))
         # Initialize an array to accumulate purity values for each sample.
         purity_sum = np.zeros(samples, dtype=complex)
 
@@ -581,7 +573,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
             purity_sum += purity_j
 
         # Average the purity over all qubits for each sample.
-        avg_purity_per_sample = purity_sum / n_qubits
+        avg_purity_per_sample = purity_sum / self.n_qubits_
         # The entanglement measure for each sample is 1 minus the average purity.
         entanglement_values = 1 - avg_purity_per_sample.real
         # The Meyer–Wallach measure is 2 times the average entanglement value over all samples.
@@ -628,7 +620,10 @@ class AnsatzSingleRot(BaseQVC):
             )
         for n_layer in range(n_layers):
             for wire in range(self.n_qubits_):
-                self._gate(weights[n_layer, wire, 0], wires=wire)
+                if len(weights.shape) == 4:
+                    self._gate(weights[:, n_layer, wire, 0], wires=wire)
+                else:
+                    self._gate(weights[n_layer, wire, 0], wires=wire)
 
 
 class AnsatzSingleRotX(AnsatzSingleRot):
