@@ -9,9 +9,9 @@ from itertools import product
 from pathlib import Path
 from typing import Any, Dict, Type
 
-from custom_classifier import models
 from joblib import Parallel, delayed
 from pennylane import numpy as np
+from qvc import models
 from sklearn.metrics import (
     accuracy_score,
     f1_score,
@@ -106,15 +106,7 @@ def run_model_for_seed(
         pickle.dump(metrics, f)
 
 
-def main() -> None:
-    """
-    Main function to execute parallel experiments on different datasets and models.
-
-    This function loads datasets for multiple difficulty levels, computes embeddings,
-    and runs several model evaluations in parallel using different random seeds.
-    The evaluation metrics for each model and seed are saved to disk.
-    """
-    # Constants and hyperparameters
+if __name__ == "__main__":
     levels = ["easy", "medium", "hard"]
     type_datasets = ["train", "test"]
     epochs = 100
@@ -162,7 +154,3 @@ def main() -> None:
                     for model, seed in product(models, range(n_repetitions))
                 ]
             )
-
-
-if __name__ == "__main__":
-    main()

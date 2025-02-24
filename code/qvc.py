@@ -720,12 +720,20 @@ class AnsatzRot(BaseQVC):
         """
         for n_layer in range(n_layers):
             for wire in range(self.n_qubits_):
-                qml.Rot(
-                    weights[n_layer, wire, 0],
-                    weights[n_layer, wire, 1],
-                    weights[n_layer, wire, 2],
-                    wires=wire,
-                )
+                if len(weights.shape) == 4:
+                    qml.Rot(
+                        weights[:, n_layer, wire, 0],
+                        weights[:, n_layer, wire, 1],
+                        weights[:, n_layer, wire, 2],
+                        wires=wire,
+                    )
+                else:
+                    qml.Rot(
+                        weights[n_layer, wire, 0],
+                        weights[n_layer, wire, 1],
+                        weights[n_layer, wire, 2],
+                        wires=wire,
+                    )
 
 
 class AnsatzRotCNOT(BaseQVC):
