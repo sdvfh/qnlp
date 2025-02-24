@@ -6,7 +6,7 @@ from qvc import models
 # Configuration variables.
 n_layers_list = [1, 10]
 n_qubits = 10  # Number of qubits is now a variable.
-samples = 4048
+samples = 1024
 
 # Define the root path and CSV file path.
 root_path: Path = Path(__file__).parent.parent.resolve()
