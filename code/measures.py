@@ -7,10 +7,11 @@ from qvc import models
 n_layers_list = [1, 10]
 n_qubits = 10  # Number of qubits is now a variable.
 samples = 1024
+truncate_dim = 32
 
 # Define the root path and CSV file path.
 root_path: Path = Path(__file__).parent.parent.resolve()
-csv_file_path: Path = root_path / "results" / "measures.csv"
+csv_file_path: Path = root_path / "results" / str(truncate_dim) / "measures.csv"
 csv_file_path.parent.mkdir(parents=True, exist_ok=True)
 
 # Read existing entries from the CSV file, if it exists.

@@ -34,6 +34,7 @@ def run_model_for_seed(
     results_path: Path,
     epochs: int,
     batch_size: int,
+    truncate_dim: int,
 ) -> None:
     """
     Execute the given model with a specific random seed and save its performance metrics.
@@ -60,7 +61,9 @@ def run_model_for_seed(
     """
     model_name: str = model.__name__
     filename: str = f"{model_name}_{level}_{n_layers}_{seed}.pkl"
-    file_path: Path = results_path / filename
+    dir_path: Path = results_path / str(truncate_dim)
+    dir_path.mkdir(parents=True, exist_ok=True)
+    file_path: Path = dir_path / filename
 
     if file_path.exists():
         return
@@ -112,6 +115,7 @@ if __name__ == "__main__":
     epochs = 100
     batch_size = 5
     n_repetitions = 30
+    truncate_dim = 32
     n_layers_list = [1, 10]
 
     # Define paths for data and results
@@ -122,7 +126,7 @@ if __name__ == "__main__":
 
     # Load datasets and compute embeddings for each level
     datasets = {level: read_dataset(data_path, level) for level in levels}
-    datasets = get_embeddings(datasets, levels, type_datasets)
+    datasets = get_embeddings(datasets, levels, type_datasets, truncate_dim)
 
     # Iterate over each number of layers and difficulty level to run model evaluations in parallel
     for n_layer in n_layers_list:
@@ -150,6 +154,7 @@ if __name__ == "__main__":
                         results_path,
                         epochs,
                         batch_size,
+                        truncate_dim,
                     )
                     for model, seed in product(models, range(n_repetitions))
                 ]

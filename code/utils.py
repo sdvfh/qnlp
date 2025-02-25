@@ -81,7 +81,10 @@ def read_files(filename: Path) -> Tuple[List[str], np.ndarray]:
 
 
 def get_embeddings(
-    dfs: Dict[str, DataDict], levels: List[str], types_datasets: List[str]
+    dfs: Dict[str, DataDict],
+    levels: List[str],
+    types_datasets: List[str],
+    truncate_dim: int,
 ) -> Dict[str, DataDict]:
     """
     Generates sentence embeddings for the dataset using a pre-trained Sentence Transformer model.
@@ -100,7 +103,7 @@ def get_embeddings(
         Dict[str, DataDict]: The updated dictionary where each dataset has an additional key "embeddings"
         containing the computed sentence embeddings.
     """
-    model = SentenceTransformer("all-mpnet-base-v2")
+    model = SentenceTransformer("all-mpnet-base-v2", truncate_dim=truncate_dim)
     for level in levels:
         for dataset in types_datasets:
             dfs[level][dataset]["embeddings"] = model.encode(
