@@ -1,13 +1,13 @@
 """
 This module executes parallel model evaluations over multiple datasets and random seeds.
-It reads datasets, obtains embeddings, trains each model, computes evaluation metrics,
-and saves the results to disk.
+It leverages joblib for parallel processing, computes embeddings, trains models, evaluates metrics,
+and persists results efficiently.
 """
 
 import pickle
 from itertools import product
 from pathlib import Path
-from typing import Any, Dict, Type
+from typing import Any, Dict, List, Type
 
 from joblib import Parallel, delayed
 from pennylane import numpy as np
@@ -38,43 +38,37 @@ def run_model_for_seed(
     n_qubits: int,
     exp_name: str,
 ) -> None:
-    """
-    Execute the given model with a specific random seed and save its performance metrics.
-
-    This function instantiates the model with the provided parameters, fits it on the training data,
-    predicts probabilities on the test data, computes various evaluation metrics, and saves these metrics
-    to a file in the results' directory.
+    """Train and evaluate a model instance with specific parameters and random seed.
 
     Args:
-        model (Type[Any]): The classifier model class.
-        x_train (np.ndarray): The training feature matrix.
-        y_train (np.ndarray): The training target vector.
-        x_test (np.ndarray): The testing feature matrix.
-        y_test (np.ndarray): The testing target vector.
-        level (str): The dataset difficulty level (e.g., "easy", "medium", "hard").
-        n_layers (int): The number of layers used in the model.
-        seed (int): The random seed for reproducibility.
-        results_path (Path): The directory where the results will be saved.
-        epochs (int): The number of training epochs.
-        batch_size (int): The size of the training batches.
-
-    Returns:
-        None
+        model: Model class to instantiate
+        x_train: Training features with shape (n_samples, n_features)
+        y_train: Training labels with shape (n_samples,)
+        x_test: Test features with shape (n_samples, n_features)
+        y_test: Test labels with shape (n_samples,)
+        level: Dataset difficulty level ('easy', 'medium', 'hard')
+        n_layers: Number of model layers
+        seed: Random seed for reproducibility
+        results_path: Base directory for saving results
+        epochs: Number of training epochs
+        batch_size: Training batch size
+        truncate_dim: Embedding truncation dimension
+        n_qubits: Number of qubits for quantum models
+        exp_name: Experiment name for directory organization
     """
-    model_name: str = model.__name__
-    filename: str = f"{model_name}_{level}_{n_layers}_{seed}.pkl"
-    dir_path: Path = results_path / exp_name / str(n_qubits) / str(truncate_dim)
+    model_name = model.__name__
+    filename = f"{model_name}_{level}_{n_layers}_{seed}.pkl"
+    dir_path = results_path / exp_name / str(n_qubits) / str(truncate_dim)
     dir_path.mkdir(parents=True, exist_ok=True)
-    file_path: Path = dir_path / filename
+    file_path = dir_path / filename
 
     if file_path.exists():
         return
 
     print(
-        f"Running {model_name} for {level} level with {n_layers} layers and seed {seed}."
+        f"Running {model_name} for {level} level with {n_layers} layers and seed {seed}"
     )
 
-    # Initialize and train the model
     model_instance = model(
         n_layers=n_layers,
         max_iter=epochs,
@@ -85,10 +79,10 @@ def run_model_for_seed(
     model_instance.fit(x_train, y_train)
     y_pred = model_instance.predict_proba(x_test)[:, 1]
 
-    # Compute ROC curve and evaluation metrics
     false_positive_rate, true_positive_rate, thresholds = roc_curve(y_test, y_pred)
     y_pred_round = y_pred.round()
-    metrics: Dict[str, Any] = {
+
+    metrics = {
         "accuracy": accuracy_score(y_test, y_pred_round),
         "f1": f1_score(y_test, y_pred_round),
         "precision": precision_score(y_test, y_pred_round),
@@ -99,45 +93,55 @@ def run_model_for_seed(
         "loss_curve": getattr(model_instance, "loss_curve_", None),
         "weights": getattr(model_instance, "weights_", None),
         "biases": getattr(model_instance, "bias_", None),
-        "n_layers": getattr(model_instance, "n_layers", n_layers),
-        "epochs": getattr(model_instance, "max_iter", epochs),
-        "batch_size": getattr(model_instance, "batch_size", batch_size),
+        "n_layers": n_layers,
+        "epochs": epochs,
+        "batch_size": batch_size,
         "level": level,
         "seed": seed,
         "y_pred": y_pred,
     }
 
-    # Save the computed metrics to a file
     with open(file_path, "wb") as f:
         pickle.dump(metrics, f)
 
 
-if __name__ == "__main__":
-    levels = ["easy", "medium", "hard"]
-    type_datasets = ["train", "test"]
-    epochs = 100
-    batch_size = 5
-    n_repetitions = 30
-    truncate_dim = 32
-    n_layers_list = [1, 10]
-    n_qubits = 10
-    exp_name = "mpnet"
-    model_template_name = "all-mpnet-base-v2"
+def main() -> None:
+    """Main execution flow for parallel model evaluation."""
+    # Configuration
+    levels: List[str] = ["easy", "medium", "hard"]
+    model_mappings = {
+        "mpnet": "all-mpnet-base-v2",
+        "matryoshka": "tomaarsen/mpnet-base-nli-matryoshka",
+        "nomic": "nomic-ai/nomic-embed-text-v1.5",
+    }
+    training_config = {
+        "epochs": 100,
+        "batch_size": 5,
+        "n_repetitions": 30,
+        "truncate_dim": 32,
+        "n_layers_list": [1, 10],
+        "n_qubits": 10,
+        "exp_name": "mpnet",
+    }
 
-    # Define paths for data and results
-    root_path: Path = Path(__file__).parent.parent.resolve()
-    data_path: Path = root_path / "data"
-    results_path: Path = root_path / "results"
+    # Path setup
+    root_path = Path(__file__).parent.parent.resolve()
+    data_path = root_path / "data"
+    results_path = root_path / "results"
     results_path.mkdir(parents=True, exist_ok=True)
 
-    # Load datasets and compute embeddings for each level
+    # Dataset processing
     datasets = {level: read_dataset(data_path, level) for level in levels}
     datasets = get_embeddings(
-        datasets, levels, type_datasets, truncate_dim, model_template_name
+        datasets,
+        levels,
+        ["train", "test"],
+        training_config["truncate_dim"],
+        model_mappings[training_config["exp_name"]],
     )
 
-    # Iterate over each number of layers and difficulty level to run model evaluations in parallel
-    for n_layer in n_layers_list:
+    # Parallel execution
+    for n_layers in training_config["n_layers_list"]:
         for level in levels:
             x_train = np.array(
                 datasets[level]["train"]["embeddings"], requires_grad=False
@@ -148,24 +152,28 @@ if __name__ == "__main__":
             )
             y_test = np.array(datasets[level]["test"]["targets"], requires_grad=False)
 
-            Parallel(n_jobs=n_repetitions)(
-                [
-                    delayed(run_model_for_seed)(
-                        model,
-                        x_train,
-                        y_train,
-                        x_test,
-                        y_test,
-                        level,
-                        n_layer,
-                        seed,
-                        results_path,
-                        epochs,
-                        batch_size,
-                        truncate_dim,
-                        n_qubits,
-                        exp_name,
-                    )
-                    for model, seed in product(models, range(n_repetitions))
-                ]
+            Parallel(n_jobs=-1)(
+                delayed(run_model_for_seed)(
+                    model,
+                    x_train,
+                    y_train,
+                    x_test,
+                    y_test,
+                    level,
+                    n_layers,
+                    seed,
+                    results_path,
+                    training_config["epochs"],
+                    training_config["batch_size"],
+                    training_config["truncate_dim"],
+                    training_config["n_qubits"],
+                    training_config["exp_name"],
+                )
+                for model, seed in product(
+                    models, range(training_config["n_repetitions"])
+                )
             )
+
+
+if __name__ == "__main__":
+    main()
