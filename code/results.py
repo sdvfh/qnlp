@@ -12,7 +12,9 @@ n_qubits = 10
 truncate_dim = 32
 dir_path = results_path / exp_name / str(n_qubits) / str(truncate_dim)
 
-file_results_path = results_path.rglob("*.pkl")
+file_results_path = list(dir_path.rglob("*.pkl"))
+if not file_results_path:
+    raise ValueError("No results found")
 
 results = []
 
