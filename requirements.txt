@@ -1,3 +1,5 @@
 matplotlib==3.10.0
+pandas==2.2.3
 pennylane==0.40.0
 sentence-transformers==3.4.1
+statsmodels==0.14.4
