@@ -35,6 +35,8 @@ def run_model_for_seed(
     epochs: int,
     batch_size: int,
     truncate_dim: int,
+    n_qubits: int,
+    exp_name: str,
 ) -> None:
     """
     Execute the given model with a specific random seed and save its performance metrics.
@@ -61,7 +63,7 @@ def run_model_for_seed(
     """
     model_name: str = model.__name__
     filename: str = f"{model_name}_{level}_{n_layers}_{seed}.pkl"
-    dir_path: Path = results_path / str(truncate_dim)
+    dir_path: Path = results_path / exp_name / str(n_qubits) / str(truncate_dim)
     dir_path.mkdir(parents=True, exist_ok=True)
     file_path: Path = dir_path / filename
 
@@ -78,6 +80,7 @@ def run_model_for_seed(
         max_iter=epochs,
         batch_size=batch_size,
         random_state=seed,
+        n_qubits=n_qubits,
     )
     model_instance.fit(x_train, y_train)
     y_pred = model_instance.predict_proba(x_test)[:, 1]
@@ -117,6 +120,9 @@ if __name__ == "__main__":
     n_repetitions = 30
     truncate_dim = 32
     n_layers_list = [1, 10]
+    n_qubits = 10
+    exp_name = "mpnet"
+    model_template_name = "all-mpnet-base-v2"
 
     # Define paths for data and results
     root_path: Path = Path(__file__).parent.parent.resolve()
@@ -126,7 +132,9 @@ if __name__ == "__main__":
 
     # Load datasets and compute embeddings for each level
     datasets = {level: read_dataset(data_path, level) for level in levels}
-    datasets = get_embeddings(datasets, levels, type_datasets, truncate_dim)
+    datasets = get_embeddings(
+        datasets, levels, type_datasets, truncate_dim, model_template_name
+    )
 
     # Iterate over each number of layers and difficulty level to run model evaluations in parallel
     for n_layer in n_layers_list:
@@ -155,6 +163,8 @@ if __name__ == "__main__":
                         epochs,
                         batch_size,
                         truncate_dim,
+                        n_qubits,
+                        exp_name,
                     )
                     for model, seed in product(models, range(n_repetitions))
                 ]
