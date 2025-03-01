@@ -85,6 +85,7 @@ def get_embeddings(
     levels: List[str],
     types_datasets: List[str],
     truncate_dim: int,
+    model_template_name: str,
 ) -> Dict[str, DataDict]:
     """
     Generates sentence embeddings for the dataset using a pre-trained Sentence Transformer model.
@@ -103,7 +104,9 @@ def get_embeddings(
         Dict[str, DataDict]: The updated dictionary where each dataset has an additional key "embeddings"
         containing the computed sentence embeddings.
     """
-    model = SentenceTransformer("all-mpnet-base-v2", truncate_dim=truncate_dim)
+    model = SentenceTransformer(
+        model_template_name, truncate_dim=truncate_dim, trust_remote_code=True
+    )
     for level in levels:
         for dataset in types_datasets:
             dfs[level][dataset]["embeddings"] = model.encode(

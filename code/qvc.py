@@ -52,6 +52,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         max_iter: int = 10,
         batch_size: int = 32,
         random_state: Optional[Any] = None,
+        n_qubits: Optional[int] = None,
     ) -> None:
         """
         Initialize the Variational Quantum Classifier.
@@ -66,6 +67,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         self.max_iter = max_iter
         self.batch_size = batch_size
         self.random_state = random_state
+        self.n_qubits_ = n_qubits
 
     def fit(
         self,
@@ -95,7 +97,8 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
                     "sample_weight must have the same number of samples as X and y."
                 )
 
-        self.n_qubits_ = self.get_n_qubits(X)
+        if self.n_qubits_ is None:
+            self.n_qubits_ = self.get_n_qubits(X)
         self.device_ = qml.device("default.qubit", wires=self.n_qubits_)
 
         # Store the classes observed during fitting.
