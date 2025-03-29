@@ -22,8 +22,10 @@ To install the necessary dependencies, execute the following command:
        cd qnlp/code
 
 3. Execute the main experiment script:
-
-       python experiments.py
+   ```bash
+   export TOKENIZERS_PARALLELISM=false
+   python experiments.py
+   ```
 
 ## Project Structure
 
