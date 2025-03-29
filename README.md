@@ -23,7 +23,7 @@ To install the necessary dependencies, execute the following command:
 
 3. Execute the main experiment script:
 
-       python experiment.py
+       python experiments.py
 
 ## Project Structure
 
