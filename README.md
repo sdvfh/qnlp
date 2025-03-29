@@ -14,15 +14,15 @@ To install the necessary dependencies, execute the following command:
 ## How to Run
 
 1. Clone the repository:
-    
+
        git clone https://github.com/sdvfh/qnlp.git
 
 2. Navigate to the `code` directory:
-    
+
        cd qnlp/code
 
 3. Execute the main experiment script:
-    
+
        python experiment.py
 
 ## Project Structure
