@@ -1,4 +1,5 @@
 import argparse
+import sys
 from pathlib import Path
 
 from datasets import read_dataset
@@ -25,6 +26,12 @@ def run(args, args_hash, config, seed, x_train, y_train, x_test, y_test):
 
     compute_metrics(model, y_test, y_pred)
     wandb.finish()
+
+
+def run_already_logged(project, config_hash):
+    api = wandb.Api()
+    runs = api.runs(project, filters={"config.hash": config_hash})
+    return len(runs) > 0
 
 
 if __name__ == "__main__":
@@ -87,6 +94,10 @@ if __name__ == "__main__":
     config = vars(args)
     args_hash = get_args_hash(args)
     config["hash"] = args_hash
+
+    if run_already_logged("svf/qnlp", args_hash):
+        print("Skipping registered run.")
+        sys.exit(0)
 
     # TODO: make verification on all parameters
 
