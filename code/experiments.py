@@ -1,9 +1,9 @@
 import argparse
-import hashlib
-import json
+
 from pathlib import Path
 
 from datasets import read_dataset
+from utils import get_args_hash
 from sklearn.metrics import (
     accuracy_score,
     f1_score,
@@ -13,6 +13,8 @@ from sklearn.metrics import (
 )
 
 import wandb
+
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Experiments execution.")
@@ -80,14 +82,10 @@ if __name__ == "__main__":
         args.dataset, args.model_transformer, args.n_features, paths
     )
 
-    args_dict = vars(args)
-    args_json = json.dumps(args_dict, sort_keys=True)
-
-    # Gerar o hash MD5 a partir da string JSON
-    args_hash_md5 = hashlib.md5(args_json.encode()).hexdigest()
+    args_hash = get_args_hash(args)
 
     for seed in range(args.n_repetitions):
-        wandb.init(entity="svf", project="qnlp", group=args_hash_md5)
+        wandb.init(entity="svf", project="qnlp", group=args_hash)
         print(
             f"Running {args.model_classifier} for "
             f'"{args.dataset}" dataset with '
@@ -95,13 +93,14 @@ if __name__ == "__main__":
             f"seed {seed}."
         )
 
-    model_instance = model(
-        n_layers=n_layers,
-        max_iter=epochs,
-        batch_size=batch_size,
-        random_state=seed,
-        n_qubits=n_qubits,
-    )
+
+        model = model_class(
+            n_layers=n_layers,
+            max_iter=epochs,
+            batch_size=batch_size,
+            random_state=seed,
+            n_qubits=n_qubits,
+        )
     model_instance.fit(x_train, y_train)
     y_pred = model_instance.predict_proba(x_test)[:, 1]
 
