@@ -22,6 +22,8 @@ from sklearn.utils.validation import (
     validate_data,
 )
 
+import wandb
+
 # Define type aliases for clarity
 DatasetType = Dict[str, Union[List[str], np.ndarray, Any]]
 DataDict = Dict[str, DatasetType]
@@ -63,6 +65,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
             batch_size (int): Batch size for training.
             random_state (Optional[Any]): Seed or random state for reproducibility.
         """
+
         self.n_layers = n_layers
         self.max_iter = max_iter
         self.batch_size = batch_size
@@ -111,7 +114,10 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         self.weights_ = self.get_weights()
         self.bias_ = np.array(0.0, requires_grad=True)
 
-        self.loss_curve_ = [self.compute_train_cost(X, y, sample_weight)]
+        train_cost = self.compute_train_cost(X, y, sample_weight)
+
+        self.loss_curve_ = [train_cost]
+        wandb.log({"loss": float(train_cost)})
         len_train: int = X.shape[0]
 
         for n_iter in range(1, self.max_iter + 1):
@@ -151,6 +157,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
 
             train_cost = self.compute_train_cost(X, y, sample_weight)
             self.loss_curve_.append(train_cost)
+            wandb.log({"loss": float(train_cost)})
             print(f"Epoch: {n_iter:5d} | Training Cost: {train_cost:0.7f}")
 
         return self
@@ -785,3 +792,22 @@ models: List[Any] = [
     AnsatzRot,
     AnsatzRotCNOT,
 ]
+
+
+def get_model_classifier(args, seed):
+    model_factory = {
+        "singlerotx": AnsatzSingleRotX,
+        "singleroty": AnsatzSingleRotY,
+        "singlerotz": AnsatzSingleRotZ,
+        "rot": AnsatzRot,
+        "rotcnot": AnsatzRotCNOT,
+    }
+    model_name = args.model_classifier
+
+    return model_factory[model_name](
+        n_layers=args.n_layers,
+        max_iter=args.epochs,
+        batch_size=args.batch_size,
+        random_state=seed,
+        n_qubits=args.n_qubits,
+    )

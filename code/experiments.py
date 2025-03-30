@@ -1,20 +1,11 @@
 import argparse
-
 from pathlib import Path
 
 from datasets import read_dataset
-from utils import get_args_hash
-from sklearn.metrics import (
-    accuracy_score,
-    f1_score,
-    precision_score,
-    recall_score,
-    roc_curve,
-)
+from models import get_model_classifier
+from utils import compute_metrics, get_args_hash
 
 import wandb
-
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Experiments execution.")
@@ -68,10 +59,14 @@ if __name__ == "__main__":
         type=int,
         required=False,
         help="Number of qubits of QVC.",
-        default=1,
+        default=10,
     )
 
     args = parser.parse_args()
+
+    config = vars(args)
+    args_hash = get_args_hash(args)
+    config["hash"] = args_hash
 
     # TODO: make verification on all parameters
 
@@ -82,51 +77,19 @@ if __name__ == "__main__":
         args.dataset, args.model_transformer, args.n_features, paths
     )
 
-    args_hash = get_args_hash(args)
-
     for seed in range(args.n_repetitions):
-        wandb.init(entity="svf", project="qnlp", group=args_hash)
+        config["seed"] = seed
+        wandb.init(entity="svf", project="qnlp", group=args_hash, config=config)
         print(
             f"Running {args.model_classifier} for "
-            f'"{args.dataset}" dataset with '
+            f"{args.dataset!r} dataset with "
             f"{args.n_layers} layers and "
             f"seed {seed}."
         )
 
+        model = get_model_classifier(args, seed)
+        model.fit(x_train, y_train)
+        y_pred = model.predict_proba(x_test)
 
-        model = model_class(
-            n_layers=n_layers,
-            max_iter=epochs,
-            batch_size=batch_size,
-            random_state=seed,
-            n_qubits=n_qubits,
-        )
-    model_instance.fit(x_train, y_train)
-    y_pred = model_instance.predict_proba(x_test)[:, 1]
-
-    false_positive_rate, true_positive_rate, thresholds = roc_curve(y_test, y_pred)
-    y_pred_round = y_pred.round()
-
-    metrics = {
-        "accuracy": accuracy_score(y_test, y_pred_round),
-        "f1": f1_score(y_test, y_pred_round),
-        "precision": precision_score(y_test, y_pred_round),
-        "recall": recall_score(y_test, y_pred_round),
-        "false_positive_rate": false_positive_rate,
-        "true_positive_rate": true_positive_rate,
-        "thresholds": thresholds,
-        "loss_curve": getattr(model_instance, "loss_curve_", None),
-        "weights": getattr(model_instance, "weights_", None),
-        "biases": getattr(model_instance, "bias_", None),
-        "n_layers": args.n_layers,
-        "epochs": args.epochs,
-        "batch_size": args.batch_size,
-        "seed": seed,
-        "y_pred": y_pred,
-        "dataset": args.dataset,
-        "model_transformer": args.model_transformer,
-        "model_classifier": args.model_classifier,
-        "n_features": args.n_features,
-        "n_qubits": args.n_qubits,
-        "n_repetitions": args.n_repetitions,
-    }
+        compute_metrics(model, y_test, y_pred)
+        wandb.finish()
