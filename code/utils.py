@@ -1,20 +1,21 @@
 import hashlib
 import json
 import os
+import uuid
 
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
 import wandb
 
 
-def create_and_log_artifact(name, data, filename, artifact_type="data"):
-    """Salva 'data' em um arquivo JSON, cria e loga um artifact no wandb, e remove o arquivo."""
-    with open(filename, "w") as f:
+def create_and_log_artifact(name, data, artifact_type="data"):
+    unique_filename = f"{name}_{uuid.uuid4().hex}.json"
+    with open(unique_filename, "w") as f:
         json.dump(data, f)
     artifact = wandb.Artifact(name, type=artifact_type)
-    artifact.add_file(filename)
+    artifact.add_file(unique_filename)
     wandb.log_artifact(artifact)
-    os.remove(filename)
+    os.remove(unique_filename)
 
 
 def get_args_hash(args):
