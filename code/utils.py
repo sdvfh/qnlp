@@ -24,11 +24,9 @@ def get_args_hash(args):
     return hashlib.md5(args_json.encode()).hexdigest()
 
 
-def compute_metrics(model, y_test, y_pred):
+def compute_metrics(y_test, y_pred):
     y_pred_round = y_pred[:, 1].round()
 
-    weights = getattr(model, "weights_", None)
-    bias = getattr(model, "bias_", None)
     metrics = {
         "accuracy": accuracy_score(y_test, y_pred_round),
         "f1": f1_score(y_test, y_pred_round),
@@ -39,11 +37,3 @@ def compute_metrics(model, y_test, y_pred):
     wandb.log({"roc": wandb.plot.roc_curve(y_test, y_pred)})
 
     wandb.log(metrics)
-
-    if weights is not None:
-        create_and_log_artifact("weights", weights.tolist(), "weights.json")
-
-    if bias is not None:
-        create_and_log_artifact("biases", {"bias": float(bias)}, "biases.json")
-
-    create_and_log_artifact("y_pred", y_pred[:, 1].tolist(), "y_pred.json")

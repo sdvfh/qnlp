@@ -23,8 +23,9 @@ def run(args, args_hash, config, seed, x_train, y_train, x_test, y_test):
     model = get_model_classifier(args, seed)
     model.fit(x_train, y_train)
     y_pred = model.predict_proba(x_test)
+    model.save(y_pred)
 
-    compute_metrics(model, y_test, y_pred)
+    compute_metrics(y_test, y_pred)
     wandb.finish()
 
 
