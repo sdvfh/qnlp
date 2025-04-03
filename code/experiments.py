@@ -30,7 +30,7 @@ def run(args, args_hash, config, seed, x_train, y_train, x_test, y_test):
 
 
 def run_already_logged(project, config_hash):
-    api = wandb.Api()
+    api = wandb.Api(timeout=60)
     runs = api.runs(project, filters={"config.hash": config_hash})
     return len(runs) > 0
 
