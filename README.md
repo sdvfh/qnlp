@@ -21,7 +21,11 @@ To install the necessary dependencies, execute the following command:
 
        cd qnlp/code
 
-3. Execute the main experiment script:
+3. Set up the datasets:
+   
+       python setup_datasets.py
+
+4. Execute the main experiment script:
    ```bash
    export TOKENIZERS_PARALLELISM=false
    python experiments.py
