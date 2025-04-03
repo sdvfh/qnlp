@@ -24,12 +24,6 @@ class Dataset:
         y_test = np.array(self.datasets["test"]["targets"], requires_grad=False)
         return x_train, y_train, x_test, y_test
 
-
-class ChatGPTDataset(Dataset):
-    def __init__(self, paths, level):
-        super().__init__(paths, level)
-        self.dataset_name = f"chatgpt_{level}"
-
     def read_dataset(self):
         for dataset in ["train", "test"]:
             file_path = self.paths["data"] / self.dataset_name / f"{dataset}.txt"
@@ -72,15 +66,28 @@ class ChatGPTDataset(Dataset):
         return list(data), np.array(targets)
 
 
+class ChatGPTDataset(Dataset):
+    def __init__(self, paths, level):
+        super().__init__(paths, level)
+        self.dataset_name = f"chatgpt_{level}"
+
+
+class SST(Dataset):
+    def __init__(self, paths):
+        super().__init__(paths)
+        self.dataset_name = "sst"
+
+
 def read_dataset(dataset, model_transformer, n_features, paths):
     dataset_factory = {
         "chatgpt_easy": lambda: ChatGPTDataset(paths, level="easy"),
         "chatgpt_medium": lambda: ChatGPTDataset(paths, level="medium"),
         "chatgpt_hard": lambda: ChatGPTDataset(paths, level="hard"),
+        "sst": lambda: SST(paths),
     }
 
     if dataset not in dataset_factory:
-        raise ValueError(f"Dataset '{dataset}' not found.")
+        raise ValueError(f"Dataset {dataset!r} not found.")
 
     dataset_class = dataset_factory[dataset]()
     dataset_class.read_dataset()
