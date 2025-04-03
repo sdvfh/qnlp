@@ -1,11 +1,39 @@
 import argparse
+import sys
 from pathlib import Path
 
 from datasets import read_dataset
+from joblib import Parallel, delayed
 from models import get_model_classifier
 from utils import compute_metrics, get_args_hash
 
 import wandb
+
+
+def run(args, args_hash, config, seed, x_train, y_train, x_test, y_test):
+    config["seed"] = seed
+    wandb.init(entity="svf", project="qnlp", group=args_hash, config=config)
+    print(
+        f"Running {args.model_classifier} for "
+        f"{args.dataset!r} dataset with "
+        f"{args.n_layers} layers and "
+        f"seed {seed}."
+    )
+
+    model = get_model_classifier(args, seed)
+    model.fit(x_train, y_train)
+    y_pred = model.predict_proba(x_test)
+    model.save(y_pred)
+
+    compute_metrics(y_test, y_pred)
+    wandb.finish()
+
+
+def run_already_logged(project, config_hash):
+    api = wandb.Api(timeout=60)
+    runs = api.runs(project, filters={"config.hash": config_hash})
+    return len(runs) > 0
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Experiments execution.")
@@ -68,6 +96,10 @@ if __name__ == "__main__":
     args_hash = get_args_hash(args)
     config["hash"] = args_hash
 
+    if run_already_logged("svf/qnlp", args_hash):
+        print("Skipping registered run.")
+        sys.exit(0)
+
     # TODO: make verification on all parameters
 
     paths = {"root": Path(__file__).parent.parent.resolve()}
@@ -77,19 +109,7 @@ if __name__ == "__main__":
         args.dataset, args.model_transformer, args.n_features, paths
     )
 
-    for seed in range(args.n_repetitions):
-        config["seed"] = seed
-        wandb.init(entity="svf", project="qnlp", group=args_hash, config=config)
-        print(
-            f"Running {args.model_classifier} for "
-            f"{args.dataset!r} dataset with "
-            f"{args.n_layers} layers and "
-            f"seed {seed}."
-        )
-
-        model = get_model_classifier(args, seed)
-        model.fit(x_train, y_train)
-        y_pred = model.predict_proba(x_test)
-
-        compute_metrics(model, y_test, y_pred)
-        wandb.finish()
+    Parallel(n_jobs=-1)(
+        delayed(run)(args, args_hash, config, seed, x_train, y_train, x_test, y_test)
+        for seed in range(args.n_repetitions)
+    )

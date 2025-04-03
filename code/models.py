@@ -4,16 +4,23 @@ The classifier is compatible with scikit-learn's estimator API and supports seve
 ansatz implementations for variational quantum circuits.
 """
 
+import json
 import operator
+import os
+import pickle
+import uuid
 from functools import reduce
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import pennylane as qml
-import scipy.linalg as la
 from pennylane import numpy as np
-from pennylane.operation import Operation
 from pennylane.optimize import NesterovMomentumOptimizer
 from sklearn.base import BaseEstimator, ClassifierMixin
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.svm import SVC
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import (
     check_array,
@@ -28,6 +35,16 @@ import wandb
 DatasetType = Dict[str, Union[List[str], np.ndarray, Any]]
 DataDict = Dict[str, DatasetType]
 SizeType = Union[int, Tuple["SizeType", ...]]
+
+
+def create_and_log_artifact(name, data, artifact_type="data"):
+    unique_filename = f"{name}_{uuid.uuid4().hex}.json"
+    with open(unique_filename, "w") as f:
+        json.dump(data, f)
+    artifact = wandb.Artifact(name, type=artifact_type)
+    artifact.add_file(unique_filename)
+    wandb.log_artifact(artifact)
+    os.remove(unique_filename)
 
 
 class BaseQVC(ClassifierMixin, BaseEstimator):
@@ -617,6 +634,11 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         mw: float = self.meyer_wallach(density_matrices, samples)
         return haar_val, mw
 
+    def save(self, y_pred):
+        create_and_log_artifact("y_pred", y_pred[:, 1].tolist(), "y_pred.json")
+        create_and_log_artifact("weights", self.weights_.tolist(), "weights.json")
+        create_and_log_artifact("biases", {"bias": float(self.bias_)}, "biases.json")
+
 
 class AnsatzSingleRot(BaseQVC):
     """
@@ -784,14 +806,79 @@ class AnsatzRotCNOT(BaseQVC):
         qml.StronglyEntanglingLayers(weights, wires=range(self.n_qubits_))
 
 
-# List of available QVC models with different ansatz implementations.
-models: List[Any] = [
-    AnsatzSingleRotX,
-    AnsatzSingleRotY,
-    AnsatzSingleRotZ,
-    AnsatzRot,
-    AnsatzRotCNOT,
-]
+class ScikitBase:
+    _model_template = None
+    _parameters_template = {}
+    _parameters = {}
+
+    def __init__(self, *args, **kwargs):
+        self._parameters = {
+            "random_state": kwargs.get("random_state"),
+            **self._parameters_template,
+        }
+        self._model = self._model_template(**self._parameters)
+
+    def fit(self, X, y, sample_weight=None):
+        self._model.fit(X, y, sample_weight=sample_weight)
+
+    def predict_proba(self, X):
+        return self._model.predict_proba(X)
+
+    def save(self, y_pred):
+        create_and_log_artifact("y_pred", y_pred[:, 1].tolist(), "y_pred.json")
+        unique_filename = f"{self.__class__.__name__}_{uuid.uuid4().hex}.pkl"
+        with open(unique_filename, "wb") as f:
+            pickle.dump(self._model, f)
+        artifact = wandb.Artifact(
+            self.__class__.__name__, type="model", metadata=self._parameters
+        )
+        artifact.add_file(unique_filename)
+        wandb.log_artifact(artifact)
+        os.remove(unique_filename)
+
+
+class SVMBase(ScikitBase):
+    _model_template = SVC
+
+
+class SVMRBF(SVMBase):
+    _parameters_template = {"kernel": "rbf", "probability": True, "verbose": True}
+
+
+class SVMLinear(SVMBase):
+    _parameters_template = {"kernel": "linear", "probability": True, "verbose": True}
+
+
+class SVMPoly(SVMBase):
+    _parameters_template = {"kernel": "poly", "probability": True, "verbose": True}
+
+
+class MyLogisticRegression(ScikitBase):
+    _model_template = LogisticRegression
+    _parameters_template = {"max_iter": 1_000_000, "verbose": 5}
+
+
+class RandomForest(ScikitBase):
+    _model_template = RandomForestClassifier
+    _parameters_template = {"verbose": 5}
+
+
+class KNN(ScikitBase):
+    _model_template = KNeighborsClassifier
+
+    def __init__(self, *args, **kwargs):
+        self._model = self._model_template()
+
+    def fit(self, X, y, sample_weight=None):
+        self._model.fit(X, y)
+
+
+class MLP(ScikitBase):
+    _model_template = MLPClassifier
+    _parameters_template = {"verbose": True, "hidden_layer_sizes": ()}
+
+    def fit(self, X, y, sample_weight=None):
+        self._model.fit(X, y)
 
 
 def get_model_classifier(args, seed):
@@ -801,6 +888,13 @@ def get_model_classifier(args, seed):
         "singlerotz": AnsatzSingleRotZ,
         "rot": AnsatzRot,
         "rotcnot": AnsatzRotCNOT,
+        "svmrbf": SVMRBF,
+        "svmlinear": SVMLinear,
+        "svmpoly": SVMPoly,
+        "logistic": MyLogisticRegression,
+        "randomforest": RandomForest,
+        "knn": KNN,
+        "mlp": MLP,
     }
     model_name = args.model_classifier
 

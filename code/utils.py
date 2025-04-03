@@ -1,20 +1,21 @@
 import hashlib
 import json
 import os
+import uuid
 
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
 import wandb
 
 
-def create_and_log_artifact(name, data, filename, artifact_type="data"):
-    """Salva 'data' em um arquivo JSON, cria e loga um artifact no wandb, e remove o arquivo."""
-    with open(filename, "w") as f:
+def create_and_log_artifact(name, data, artifact_type="data"):
+    unique_filename = f"{name}_{uuid.uuid4().hex}.json"
+    with open(unique_filename, "w") as f:
         json.dump(data, f)
     artifact = wandb.Artifact(name, type=artifact_type)
-    artifact.add_file(filename)
+    artifact.add_file(unique_filename)
     wandb.log_artifact(artifact)
-    os.remove(filename)
+    os.remove(unique_filename)
 
 
 def get_args_hash(args):
@@ -23,11 +24,9 @@ def get_args_hash(args):
     return hashlib.md5(args_json.encode()).hexdigest()
 
 
-def compute_metrics(model, y_test, y_pred):
+def compute_metrics(y_test, y_pred):
     y_pred_round = y_pred[:, 1].round()
 
-    weights = getattr(model, "weights_", None)
-    bias = getattr(model, "bias_", None)
     metrics = {
         "accuracy": accuracy_score(y_test, y_pred_round),
         "f1": f1_score(y_test, y_pred_round),
@@ -38,11 +37,3 @@ def compute_metrics(model, y_test, y_pred):
     wandb.log({"roc": wandb.plot.roc_curve(y_test, y_pred)})
 
     wandb.log(metrics)
-
-    if weights is not None:
-        create_and_log_artifact("weights", weights.tolist(), "weights.json")
-
-    if bias is not None:
-        create_and_log_artifact("biases", {"bias": float(bias)}, "biases.json")
-
-    create_and_log_artifact("y_pred", y_pred[:, 1].tolist(), "y_pred.json")
