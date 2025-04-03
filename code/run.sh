@@ -48,3 +48,21 @@ for dataset in chatgpt_easy chatgpt_medium chatgpt_hard; do
     done
   done
 done
+
+for dataset in sst; do
+  for classifier in singlerotx singleroty singlerotz rot rotcnot; do
+    for layers in 1 10; do
+      # Block 4: Transformer tomaarsen/mpnet-base-nli-matryoshka, n_features 32, n_qubits 5
+      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 32 -model_classifier "$classifier" --epochs 100 --batch_size 512 --n_repetitions 30 --n_layers "$layers" --n_qubits 5;
+    done
+  done
+done
+
+for dataset in sst; do
+  for classifier in svmrbf svmlinear svmpoly logistic randomforest knn mlp; do
+    for layers in 1; do
+      # Block 4: Transformer tomaarsen/mpnet-base-nli-matryoshka, n_features 32, n_qubits 5
+      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 32 -model_classifier "$classifier" --epochs 100 --batch_size 512 --n_repetitions 30 --n_layers "$layers" --n_qubits 5;
+    done
+  done
+done
