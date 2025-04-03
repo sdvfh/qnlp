@@ -109,7 +109,7 @@ if __name__ == "__main__":
         args.dataset, args.model_transformer, args.n_features, paths
     )
 
-    Parallel(n_jobs=-1)(
+    Parallel(n_jobs=int(args.n_repetitions))(
         delayed(run)(args, args_hash, config, seed, x_train, y_train, x_test, y_test)
         for seed in range(args.n_repetitions)
     )
