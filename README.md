@@ -26,10 +26,12 @@ To install the necessary dependencies, execute the following command:
        python setup_datasets.py
 
 4. Execute the main experiment script:
-   ```bash
-   export TOKENIZERS_PARALLELISM=false
-   python experiments.py
-   ```
+    
+       ./run.sh
+
+5. Download all runs from wandb:
+
+       python wandb_local.py
 
 ## Project Structure
 
