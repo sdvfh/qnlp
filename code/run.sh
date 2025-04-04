@@ -39,8 +39,6 @@ for dataset in chatgpt_easy chatgpt_medium chatgpt_hard; do
       python experiments.py -dataset "$dataset" -model_transformer "all-mpnet-base-v2" -n_features 768 -model_classifier "$classifier" --epochs 100 --batch_size 5 --n_repetitions 30 --n_layers "$layers" --n_qubits 10; \
       # Block 2: Transformer all-mpnet-base-v2, n_features 32, n_qubits 10
       python experiments.py -dataset "$dataset" -model_transformer "all-mpnet-base-v2" -n_features 32 -model_classifier "$classifier" --epochs 100 --batch_size 5 --n_repetitions 30 --n_layers "$layers" --n_qubits 10; \
-      # Block 3: Transformer all-mpnet-base-v2, n_features 32, n_qubits 5
-      python experiments.py -dataset "$dataset" -model_transformer "all-mpnet-base-v2" -n_features 32 -model_classifier "$classifier" --epochs 100 --batch_size 5 --n_repetitions 30 --n_layers "$layers" --n_qubits 5; \
       # Block 4: Transformer tomaarsen/mpnet-base-nli-matryoshka, n_features 32, n_qubits 5
       python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 32 -model_classifier "$classifier" --epochs 100 --batch_size 5 --n_repetitions 30 --n_layers "$layers" --n_qubits 5; \
       # Block 5: Transformer nomic-ai/nomic-embed-text-v1.5, n_features 32, n_qubits 5
