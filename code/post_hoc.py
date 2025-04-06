@@ -6,8 +6,8 @@ from scipy.stats import wilcoxon
 from statsmodels.stats.multitest import multipletests
 
 
-def read_summary():
-    with open(str(Path(__file__).parent.parent / "results" / "summary.pkl"), "rb") as f:
+def read_summary(results_path):
+    with open(str(results_path / "summary.pkl"), "rb") as f:
         summary = pickle.load(f)
 
     new_summary = []
@@ -32,6 +32,8 @@ def read_summary():
     return df
 
 
+results_path = Path(__file__).parent.parent / "results"
+
 datasets = ["chatgpt_easy", "chatgpt_medium", "chatgpt_hard"]
 models = {
     "quantum": ["singlerotx", "singleroty", "singlerotz", "rot", "rotcnot"],
@@ -46,7 +48,7 @@ models = {
     ],
 }
 n_layers = [1, 10]
-df = read_summary()
+df = read_summary(results_path)
 
 # 1. Dimensionality reduction
 # 1.1. Global
@@ -78,7 +80,6 @@ for dataset in datasets:
                             "dataset": dataset,
                             "model_transformer": "all-mpnet-base-v2",
                             "model_classifier": model,
-                            "n_features": n_features,
                             "n_qubits": 10,
                             "n_layers": n_layer,
                             "wilcoxon_statistics": stats.statistic,
@@ -108,7 +109,6 @@ for dataset in datasets:
                         "dataset": dataset,
                         "model_transformer": "all-mpnet-base-v2",
                         "model_classifier": model,
-                        "n_features": n_features,
                         "wilcoxon_statistics": stats.statistic,
                         "wilcoxon_p_value": stats.pvalue,
                         "f1_768": dims[:, 0].mean(),
@@ -120,3 +120,5 @@ results = pd.DataFrame(results)
 _, p_values_fixed, _, _ = multipletests(results["wilcoxon_p_value"], method="holm")
 results["wilcoxon_p_value_fixed"] = p_values_fixed
 results["wilcoxon_shows_diff"] = results["wilcoxon_p_value_fixed"] < 0.05
+
+results.to_csv(str(results_path / "wilcoxon_p_value_fixed.csv"), index=False)
