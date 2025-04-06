@@ -51,7 +51,6 @@ n_layers = [1, 10]
 df = read_summary(results_path)
 
 # 1. Dimensionality reduction
-# 1.1. Global
 results = []
 for dataset in datasets:
     for model_type in models:
@@ -121,4 +120,49 @@ _, p_values_fixed, _, _ = multipletests(results["wilcoxon_p_value"], method="hol
 results["wilcoxon_p_value_fixed"] = p_values_fixed
 results["wilcoxon_shows_diff"] = results["wilcoxon_p_value_fixed"] < 0.05
 
-results.to_csv(str(results_path / "wilcoxon_p_value_fixed.csv"), index=False)
+results.to_csv(str(results_path / "features_wilcoxon_p_value_fixed.csv"), index=False)
+
+
+# 2. Qubits reduction
+results = []
+for dataset in datasets:
+    for model_type in models:
+        for model in models[model_type]:
+            if model_type == "quantum":
+                for n_layer in n_layers:
+                    dims = []
+                    for n_qubits in [5, 10]:
+                        dim = df.loc[
+                            (df["dataset"] == dataset)
+                            & (df["model_transformer"] == "all-mpnet-base-v2")
+                            & (df["model_classifier"] == model)
+                            & (df["n_features"] == 32)
+                            & (df["n_qubits"] == n_qubits)
+                            & (df["n_layers"] == n_layer),
+                            ["seed", "f1"],
+                        ]
+                        dim = dim.set_index("seed")
+                        dim.columns = [f"f1_{n_qubits}"]
+                        dims.append(dim)
+                    dims = pd.concat(dims, axis=1).values
+                    stats = wilcoxon(dims[:, 0], dims[:, 1])
+
+                    results.append(
+                        {
+                            "dataset": dataset,
+                            "model_transformer": "all-mpnet-base-v2",
+                            "model_classifier": model,
+                            "n_layers": n_layer,
+                            "wilcoxon_statistics": stats.statistic,
+                            "wilcoxon_p_value": stats.pvalue,
+                            "f1_5": dims[:, 0].mean(),
+                            "f1_10": dims[:, 1].mean(),
+                        }
+                    )
+
+results = pd.DataFrame(results)
+_, p_values_fixed, _, _ = multipletests(results["wilcoxon_p_value"], method="holm")
+results["wilcoxon_p_value_fixed"] = p_values_fixed
+results["wilcoxon_shows_diff"] = results["wilcoxon_p_value_fixed"] < 0.05
+
+results.to_csv(str(results_path / "qubits_wilcoxon_p_value_fixed.csv"), index=False)
