@@ -16,7 +16,12 @@ import pennylane as qml
 from pennylane import numpy as np
 from pennylane.optimize import NesterovMomentumOptimizer
 from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import (
+    AdaBoostClassifier,
+    BaggingClassifier,
+    RandomForestClassifier,
+    VotingClassifier,
+)
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
@@ -71,7 +76,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         max_iter: int = 10,
         batch_size: int = 32,
         random_state: Optional[Any] = None,
-        n_qubits: Optional[int] = None,
+        n_qubits_: Optional[int] = None,
     ) -> None:
         """
         Initialize the Variational Quantum Classifier.
@@ -87,7 +92,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         self.max_iter = max_iter
         self.batch_size = batch_size
         self.random_state = random_state
-        self.n_qubits_ = n_qubits
+        self.n_qubits_ = n_qubits_
 
     def fit(
         self,
@@ -881,6 +886,47 @@ class MLP(ScikitBase):
         self._model.fit(X, y)
 
 
+class AdaBoostRotCNOT(ScikitBase):
+    def __init__(self, *args, **kwargs):
+        qvc = AnsatzRotCNOT(*args, **kwargs)
+        self._model = AdaBoostClassifier(
+            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
+        )
+
+
+class BaggingRotCNOT(ScikitBase):
+    def __init__(self, *args, **kwargs):
+        qvc = AnsatzRotCNOT(*args, **kwargs)
+        self._model = BaggingClassifier(
+            estimator=qvc,
+            n_estimators=100,
+            random_state=kwargs.get("random_state"),
+            bootstrap_features=True,
+        )
+
+
+class VotingQVC(ScikitBase):
+    voting_method = None
+
+    def __init__(self, *args, **kwargs):
+        qvcs = [
+            ("single_rot_x", AnsatzSingleRotX(*args, **kwargs)),
+            ("single_rot_y", AnsatzSingleRotY(*args, **kwargs)),
+            ("single_rot_z", AnsatzSingleRotZ(*args, **kwargs)),
+            ("rot", AnsatzRot(*args, **kwargs)),
+            ("rotcnot", AnsatzRotCNOT(*args, **kwargs)),
+        ]
+        self._model = VotingClassifier(estimators=qvcs, voting=self.voting_method)
+
+
+class SoftVotingQVC(VotingQVC):
+    voting_method = "soft"
+
+
+class HardVotingQVC(VotingQVC):
+    voting_method = "hard"
+
+
 def get_model_classifier(args, seed):
     model_factory = {
         "singlerotx": AnsatzSingleRotX,
@@ -895,6 +941,10 @@ def get_model_classifier(args, seed):
         "randomforest": RandomForest,
         "knn": KNN,
         "mlp": MLP,
+        "ensemble_adaboost_rotcnot": AdaBoostRotCNOT,
+        "ensemble_bagging_rotcnot": BaggingRotCNOT,
+        "ensemble_softvoting_qvc": SoftVotingQVC,
+        "ensemble_hardvoting_qvc": HardVotingQVC,
     }
     model_name = args.model_classifier
 
@@ -903,5 +953,5 @@ def get_model_classifier(args, seed):
         max_iter=args.epochs,
         batch_size=args.batch_size,
         random_state=seed,
-        n_qubits=args.n_qubits,
+        n_qubits_=args.n_qubits,
     )
