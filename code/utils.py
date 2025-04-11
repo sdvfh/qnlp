@@ -24,8 +24,12 @@ def get_args_hash(args):
     return hashlib.md5(args_json.encode()).hexdigest()
 
 
-def compute_metrics(y_test, y_pred):
-    y_pred_round = y_pred[:, 1].round()
+def compute_metrics(y_test, y_pred, model_has_proba=False):
+    if model_has_proba:
+        y_pred_round = y_pred[:, 1].round()
+        wandb.log({"roc": wandb.plot.roc_curve(y_test, y_pred)})
+    else:
+        y_pred_round = y_pred
 
     metrics = {
         "accuracy": accuracy_score(y_test, y_pred_round),
@@ -33,7 +37,4 @@ def compute_metrics(y_test, y_pred):
         "precision": precision_score(y_test, y_pred_round),
         "recall": recall_score(y_test, y_pred_round),
     }
-
-    wandb.log({"roc": wandb.plot.roc_curve(y_test, y_pred)})
-
     wandb.log(metrics)

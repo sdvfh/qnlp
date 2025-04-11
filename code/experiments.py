@@ -22,10 +22,14 @@ def run(args, args_hash, config, seed, x_train, y_train, x_test, y_test):
 
     model = get_model_classifier(args, seed)
     model.fit(x_train, y_train)
-    y_pred = model.predict_proba(x_test)
+    model_has_proba = True
+    try:
+        y_pred = model.predict_proba(x_test)
+    except AttributeError:
+        y_pred = model.predict(x_test)
+        model_has_proba = False
     model.save(y_pred)
-
-    compute_metrics(y_test, y_pred)
+    compute_metrics(y_test, y_pred, model_has_proba=model_has_proba)
     wandb.finish()
 
 

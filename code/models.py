@@ -829,6 +829,9 @@ class ScikitBase:
     def predict_proba(self, X):
         return self._model.predict_proba(X)
 
+    def predict(self, X):
+        return self._model.predict(X)
+
     def save(self, y_pred):
         create_and_log_artifact("y_pred", y_pred[:, 1].tolist(), "y_pred.json")
         unique_filename = f"{self.__class__.__name__}_{uuid.uuid4().hex}.pkl"
