@@ -82,3 +82,22 @@ for dataset in sst; do
     done
   done
 done
+
+
+for dataset in sst; do
+  for classifier in maouaki1 maouaki7 maouaki9 maouaki11 maouaki15 ensemble_softvoting_maouaki ensemble_hardvoting_maouaki ensemble_softvoting_qvc_all ensemble_hardvoting_qvc_all; do
+    for layers in 1 10; do
+      # Block 4: Transformer tomaarsen/mpnet-base-nli-matryoshka, n_features 32, n_qubits 5
+      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 16 -model_classifier "$classifier" --epochs 100 --batch_size 512 --n_repetitions 30 --n_layers "$layers" --n_qubits 4;
+    done
+  done
+done
+
+for dataset in sst; do
+  for classifier in ensemble_softvoting_classic ensemble_hardvoting_classic; do
+    for layers in 1; do
+      # Block 4: Transformer tomaarsen/mpnet-base-nli-matryoshka, n_features 32, n_qubits 5
+      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 16 -model_classifier "$classifier" --epochs 100 --batch_size 512 --n_repetitions 30 --n_layers "$layers" --n_qubits 4;
+    done
+  done
+done
