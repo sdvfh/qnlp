@@ -64,3 +64,21 @@ for dataset in sst; do
     done
   done
 done
+
+for dataset in sst; do
+  for classifier in ensemble_adaboost_rotcnot ensemble_softvoting_qvc ensemble_hardvoting_qvc singlerotx singleroty singlerotz rot rotcnot ensemble_bagging_rotcnot; do
+    for layers in 1 10; do
+      # Block 4: Transformer tomaarsen/mpnet-base-nli-matryoshka, n_features 32, n_qubits 5
+      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 16 -model_classifier "$classifier" --epochs 100 --batch_size 512 --n_repetitions 30 --n_layers "$layers" --n_qubits 4;
+    done
+  done
+done
+
+for dataset in sst; do
+  for classifier in svmrbf svmlinear svmpoly logistic randomforest knn mlp; do
+    for layers in 1; do
+      # Block 4: Transformer tomaarsen/mpnet-base-nli-matryoshka, n_features 32, n_qubits 5
+      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 16 -model_classifier "$classifier" --epochs 100 --batch_size 512 --n_repetitions 30 --n_layers "$layers" --n_qubits 4;
+    done
+  done
+done
