@@ -28,7 +28,7 @@ def run(args, args_hash, config, seed, x_train, y_train, x_test, y_test):
     except AttributeError:
         y_pred = model.predict(x_test)
         model_has_proba = False
-    model.save(y_pred)
+    model.save(y_pred, model_has_proba=model_has_proba)
     compute_metrics(y_test, y_pred, model_has_proba=model_has_proba)
     wandb.finish()
 

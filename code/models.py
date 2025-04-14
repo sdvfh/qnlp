@@ -639,8 +639,11 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         mw: float = self.meyer_wallach(density_matrices, samples)
         return haar_val, mw
 
-    def save(self, y_pred):
-        create_and_log_artifact("y_pred", y_pred[:, 1].tolist(), "y_pred.json")
+    def save(self, y_pred, model_has_proba=True):
+        if model_has_proba:
+            create_and_log_artifact("y_pred", y_pred[:, 1].tolist(), "y_pred.json")
+        else:
+            create_and_log_artifact("y_pred", y_pred.tolist(), "y_pred.json")
         create_and_log_artifact("weights", self.weights_.tolist(), "weights.json")
         create_and_log_artifact("biases", {"bias": float(self.bias_)}, "biases.json")
 
@@ -832,8 +835,11 @@ class ScikitBase:
     def predict(self, X):
         return self._model.predict(X)
 
-    def save(self, y_pred):
-        create_and_log_artifact("y_pred", y_pred[:, 1].tolist(), "y_pred.json")
+    def save(self, y_pred, model_has_proba=True):
+        if model_has_proba:
+            create_and_log_artifact("y_pred", y_pred[:, 1].tolist(), "y_pred.json")
+        else:
+            create_and_log_artifact("y_pred", y_pred.tolist(), "y_pred.json")
         unique_filename = f"{self.__class__.__name__}_{uuid.uuid4().hex}.pkl"
         with open(unique_filename, "wb") as f:
             pickle.dump(self._model, f)
