@@ -9,8 +9,10 @@ runs = api.runs("svf/qnlp")
 history = []
 for run in runs:
     summary = dict(run.summary)
-    summary.pop("_wandb")
-    summary.pop("roc_table")
+    if "_wandb" in summary:
+        summary.pop("_wandb")
+    if "roc_table" in summary:
+        summary.pop("roc_table")
     history.append(
         {
             "project": run.project,
