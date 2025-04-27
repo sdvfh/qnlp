@@ -1,0 +1,10 @@
+Q 4
+
+LAYER &L
+
+rx 0 %
+rx 1 %
+rx 2 %
+rx 3 %
+
+ENDLAYER

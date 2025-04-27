@@ -1,0 +1,16 @@
+Q 4
+
+LAYER &L
+
+ru 0 % % %
+ru 1 % % %
+ru 2 % % %
+ru 3 % % %
+
+BAR
+cx 0 1 %
+cx 1 2 %
+cx 2 3 %
+cx 3 0 %
+
+ENDLAYER
