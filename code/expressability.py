@@ -80,6 +80,22 @@ def random_su2(rng, size):
     return np.column_stack((phi, theta, omega))
 
 
+def ansatz_4(params):
+    qml.RX(params[:, 0], wires=0)
+    qml.RX(params[:, 1], wires=1)
+    qml.RX(params[:, 2], wires=2)
+    qml.RX(params[:, 3], wires=3)
+
+    qml.RZ(params[:, 4], wires=0)
+    qml.RZ(params[:, 5], wires=1)
+    qml.RZ(params[:, 6], wires=2)
+    qml.RZ(params[:, 7], wires=3)
+
+    qml.CRZ(params[:, 8], wires=[3, 2])
+    qml.CRZ(params[:, 9], wires=[3, 1])
+    qml.CRZ(params[:, 10], wires=[1, 0])
+
+
 def ansatz_16(params):
     qml.RX(params[:, 0], wires=0)
     qml.RX(params[:, 1], wires=1)
@@ -134,6 +150,22 @@ def ansatz_14(params):
     qml.CRX(params[:, 15], wires=[2, 1])
 
 
+def ansatz_9(params):
+    qml.H(wires=0)
+    qml.H(wires=1)
+    qml.H(wires=2)
+    qml.H(wires=3)
+
+    qml.CZ(wires=[0, 1])
+    qml.CZ(wires=[1, 2])
+    qml.CZ(wires=[2, 3])
+
+    qml.RX(params[:, 0], wires=0)
+    qml.RX(params[:, 1], wires=1)
+    qml.RX(params[:, 2], wires=2)
+    qml.RX(params[:, 3], wires=3)
+
+
 def probability_haar(lower_value, upper_value, N):
     return primitive_p_haar(upper_value, N) - primitive_p_haar(lower_value, N)
 
@@ -169,6 +201,18 @@ def compute_distance_ent(u, v):
     return norm_u2 * norm_v2 - np.abs(overlap) ** 2
 
 
+def compute_distance_ent2(u, v):
+    # u, v: vetores complexos ou reais de mesma dimensão D
+    # 1) calcula matriz M1[i,k] = u[i]*v[k]
+    M1 = np.outer(u, v)  # :contentReference[oaicite:0]{index=0}
+    # 2) calcula matriz M2[i,k] = v[i]*u[k]
+    M2 = np.outer(v, u)  # :contentReference[oaicite:1]{index=1}
+    # 3) elemento a elemento, módulo ao quadrado das diferenças
+    diff2 = np.abs(M1 - M2) ** 2
+    # 4) soma tudo e aplica o fator 1/2
+    return 0.5 * diff2.sum()
+
+
 def compute_entanglement_vectorized(states: np.ndarray, n_qubits: int) -> float:
     M = states.shape[0]
     # reshape to (M, 2, 2, ..., 2) with one axis per qubit
@@ -195,13 +239,75 @@ def compute_entanglement_vectorized(states: np.ndarray, n_qubits: int) -> float:
     return np.mean(ent_values)
 
 
+def compute_entanglement_vectorized2(states: np.ndarray, n_qubits: int) -> float:
+    """
+    Vetorizado: para cada qubit j, extrai u,v em batch e
+    calcula D_j usando produtos externos (np.outer em batch).
+    states: array (M, 2**n_qubits)
+    """
+    M = states.shape[0]
+    # (M, 2, 2, ..., 2)
+    psi_t = states.reshape((M,) + (2,) * n_qubits)
+
+    distances_sum = np.zeros(M)  # acumula D_j para cada estado
+
+    for j in range(n_qubits):
+        # extrai u e v, shape (M, D), D = 2**(n_qubits-1)
+        u = np.take(psi_t, 0, axis=1 + j).reshape(M, -1)
+        v = np.take(psi_t, 1, axis=1 + j).reshape(M, -1)
+
+        # agora, em batch, calcula o produto externo antissimétrico
+        # M1[m,i,k] = u[m,i] * v[m,k]
+        M1 = u[:, :, None] * v[:, None, :]
+        # M2[m,i,k] = v[m,i] * u[m,k]
+        M2 = v[:, :, None] * u[:, None, :]
+
+        # |M1 - M2|^2 elementwise, soma sobre i,k e aplica 1/2
+        # isso dá D_j para cada um dos M estados
+        D_j = 0.5 * np.abs(M1 - M2) ** 2
+        D_j = D_j.sum(axis=(1, 2))  # shape (M,)
+
+        distances_sum += D_j
+
+    # Meyer–Wallach por batch e média final
+    ent_values = (4 / n_qubits) * distances_sum  # shape (M,)
+    return float(ent_values.mean())
+
+
+def meyer_wallach_Q(psi: np.ndarray, n_qubits: int) -> float:
+    """
+    Calcula Q = 2*(1 - 1/n * sum_j Tr[rho_j^2]) via pureza de cada qubit.
+    - psi: vector de estado de dimensão 2**n_qubits
+    - n_qubits: número de qubits n
+    """
+    # 1) Tensoriza o vector de estado
+    psi_t = psi.reshape((2,) * n_qubits)  # :contentReference[oaicite:6]{index=6}
+
+    sum_purity = 0.0
+    # 2) Para cada qubit j
+    for j in range(n_qubits):
+        # 2a) traz o qubit j para o eixo 0
+        psi_j = np.moveaxis(psi_t, j, 0)  # :contentReference[oaicite:7]{index=7}
+        # 2b) flatten dos demais eixos
+        psi_flat = psi_j.reshape(2, -1)  # (2, 2**(n-1))
+        # 2c) reduzido ρ_j = psi_flat @ psi_flat^†
+        rho_j = psi_flat @ psi_flat.conj().T  # :contentReference[oaicite:8]{index=8}
+        # 2d) pureza Tr[ρ_j^2]
+        purity_j = np.trace(rho_j @ rho_j).real  # :contentReference[oaicite:9]{index=9}
+        sum_purity += purity_j
+
+    # 3) média do linear entropy
+    Q = 2 * (1 - sum_purity / n_qubits)  # :contentReference[oaicite:10]{index=10}
+    return Q
+
+
 seed = 0
 N = 5_000
 # N = 1_000_000
 n_qubits = 4
 n_bins = 75
 # n_bins = int(np.ceil(np.sqrt(N)))
-to_plot = True
+to_plot = False
 
 rng = np.random.default_rng(seed)
 
@@ -212,8 +318,8 @@ prob_dist_haar = [
 ]
 
 # my_ansatz = ansatz_a
-my_ansatz = ansatz_14
-params_shape = (N, 16)
+my_ansatz = ansatz_17
+params_shape = (N, 11)
 
 params, params_conj = rng.uniform(0, 2 * np.pi, size=params_shape), rng.uniform(
     0, 2 * np.pi, size=params_shape
@@ -274,19 +380,36 @@ if to_plot:
     plt.show()
 
 if n_qubits == 1:
-    ent_final = 0
+    ent_final_1 = ent_final_2 = ent_final_3 = ent_final_4 = 0
 else:
     states = circ_ent(params)
-    ent_final = compute_entanglement_vectorized(states, n_qubits)
+    ent_final_1 = compute_entanglement_vectorized(states, n_qubits)
+    ent_final_4 = compute_entanglement_vectorized2(states, n_qubits)
 
-print(f"Entanglement value is {ent_final:0.4f}")
-# ents = []
-# for i in range(len(states)):
-#     sample = states[i]
-#     distances = []
-#     for j_qubit in range(n_qubits):
-#         distance = compute_distance_ent(iota_j(sample, j_qubit, 0), iota_j(sample, j_qubit, 1))
-#         distances.append(distance)
-#     ent = (4 / n_qubits) * np.sum(distances)
-#     ents.append(ent)
-# ent_final = np.mean(ents)
+    ents = []
+    for i in range(len(states)):
+        sample = states[i]
+        distances = []
+        for j_qubit in range(n_qubits):
+            iota_j_0 = iota_j(sample, j_qubit, 0)
+            iota_j_1 = iota_j(sample, j_qubit, 1)
+            # distance = compute_distance_ent(iota_j_0, iota_j_1)
+            distance = compute_distance_ent2(iota_j_0, iota_j_1)
+            distances.append(distance)
+        ent = (4 / n_qubits) * np.sum(distances)
+        ents.append(ent)
+    ent_final_2 = np.mean(ents)
+
+    ents = []
+    for i in range(len(states)):
+        sample = states[i]
+        ent = meyer_wallach_Q(sample, n_qubits)
+        ents.append(ent)
+    ent_final_3 = np.mean(ents)
+
+print(
+    f"Entanglement value is {ent_final_1} | \n"
+    f"                      {ent_final_2} | \n"
+    f"                      {ent_final_3} | \n"
+    f"                      {ent_final_4} | \n"
+)
