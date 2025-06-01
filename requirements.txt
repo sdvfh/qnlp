@@ -1,9 +1,10 @@
+aeon==1.1.0
 einops==0.8.1
-matplotlib==3.10.0
+matplotlib==3.10.3
 pandas==2.2.3
-pennylane==0.40.0
+pennylane==0.41.1
 pytreebank==0.2.7
 scikit-posthocs==0.11.4
-sentence-transformers==4.0.1
+sentence-transformers==4.1.0
 statsmodels==0.14.4
-wandb==0.19.8
+wandb==0.19.11
