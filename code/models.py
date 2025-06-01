@@ -6,7 +6,6 @@ import uuid
 from functools import reduce
 
 import pennylane as qml
-from pennylane import NesterovMomentumOptimizer
 from pennylane import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.ensemble import (
@@ -81,7 +80,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         self.classes_ = unique_labels(y)
         self.random_state_ = check_random_state(self.random_state)
 
-        opt = NesterovMomentumOptimizer(0.01)
+        opt = qml.MomentumQNGOptimizer()
 
         self.weights_ = self.get_weights()
         self.bias_ = np.array(0.0, requires_grad=True)
