@@ -4,7 +4,6 @@ import os
 import pickle
 import uuid
 from functools import reduce
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import pennylane as qml
 from pennylane import numpy as np
@@ -241,7 +240,8 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         return float(np.mean(np.abs(labels - predictions) < 1e-5))
 
     def get_weights(self):
-        raise NotImplementedError("Subclasses must implement the get_weights method.")
+        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
+        return np.array(weights, requires_grad=True)
 
     def get_weights_size(self):
         raise NotImplementedError(
@@ -262,10 +262,6 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
 
 class AnsatzSingleRot(BaseQVC):
     _gate = None
-
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
 
     def get_weights_size(self):
         return self.n_layers, self.n_qubits_, 1
@@ -296,10 +292,6 @@ class AnsatzSingleRotZ(AnsatzSingleRot):
 
 
 class AnsatzRot(BaseQVC):
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
-
     def get_weights_size(self):
         return self.n_layers, self.n_qubits_, 3
 
@@ -323,10 +315,6 @@ class AnsatzRot(BaseQVC):
 
 
 class AnsatzRotCNOT(BaseQVC):
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
-
     def get_weights_size(self):
         return self.n_layers, self.n_qubits_, 3
 
@@ -335,10 +323,6 @@ class AnsatzRotCNOT(BaseQVC):
 
 
 class AnsatzRotCNOT2(BaseQVC):
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
-
     def get_weights_size(self):
         return self.n_layers, self.n_qubits_, 3
 
@@ -375,10 +359,6 @@ class AnsatzMaouakiBase(BaseQVC):
 
 
 class AnsatzMaouaki15(BaseQVC):
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
-
     def get_weights_size(self):
         return self.n_layers, 8
 
@@ -410,10 +390,6 @@ class AnsatzMaouaki15(BaseQVC):
 
 
 class AnsatzMaouaki1(BaseQVC):
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
-
     def get_weights_size(self):
         return self.n_layers, 8
 
@@ -431,10 +407,6 @@ class AnsatzMaouaki1(BaseQVC):
 
 
 class AnsatzMaouaki9(BaseQVC):
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
-
     def get_weights_size(self):
         return self.n_layers, 4
 
@@ -458,10 +430,6 @@ class AnsatzMaouaki9(BaseQVC):
 
 
 class AnsatzEnt1(BaseQVC):
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
-
     def get_weights_size(self):
         return self.n_layers, 4
 
@@ -479,10 +447,6 @@ class AnsatzEnt1(BaseQVC):
 
 
 class AnsatzEnt2(BaseQVC):
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
-
     def get_weights_size(self):
         return self.n_layers, 4
 
@@ -506,10 +470,6 @@ class AnsatzEnt2(BaseQVC):
 
 
 class AnsatzEnt22(BaseQVC):
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
-
     def get_weights_size(self):
         return self.n_layers, 4
 
@@ -532,10 +492,6 @@ class AnsatzEnt22(BaseQVC):
 
 
 class AnsatzEnt3(BaseQVC):
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
-
     def get_weights_size(self):
         return self.n_layers, 12
 
@@ -567,10 +523,6 @@ class AnsatzEnt3(BaseQVC):
 
 
 class AnsatzEnt32(BaseQVC):
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
-
     def get_weights_size(self):
         return self.n_layers, 12
 
@@ -601,10 +553,6 @@ class AnsatzEnt32(BaseQVC):
 
 
 class AnsatzEnt4(BaseQVC):
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
-
     def get_weights_size(self):
         return self.n_layers, 12
 
@@ -636,10 +584,6 @@ class AnsatzEnt4(BaseQVC):
 
 
 class AnsatzMaouaki7(BaseQVC):
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
-
     def get_weights_size(self):
         return self.n_layers, 19
 
@@ -672,10 +616,6 @@ class AnsatzMaouaki7(BaseQVC):
 
 
 class AnsatzMaouaki11(BaseQVC):
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
-
     def get_weights_size(self):
         return self.n_layers, 12
 
@@ -704,10 +644,6 @@ class AnsatzMaouaki11(BaseQVC):
 
 
 class AnsatzMaouaki6(BaseQVC):
-    def get_weights(self):
-        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
-        return np.array(weights, requires_grad=True)
-
     def get_weights_size(self):
         return self.n_layers, 28
 
