@@ -17,6 +17,7 @@ def run(args, args_hash, config, seed, x_train, y_train, x_test, y_test, testing
     print(
         f"Running {args.model_classifier} for "
         f"{args.dataset!r} dataset with "
+        f"{args.model_transformer} model transformer, "
         f"{args.n_layers} layers and "
         f"seed {seed}."
     )
