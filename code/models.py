@@ -276,10 +276,7 @@ class AnsatzSingleRot(BaseQVC):
             )
         for n_layer in range(n_layers):
             for wire in range(self.n_qubits_):
-                if len(weights.shape) == 4:
-                    self._gate(weights[:, n_layer, wire, 0], wires=wire)
-                else:
-                    self._gate(weights[n_layer, wire, 0], wires=wire)
+                self._gate(weights[n_layer, wire, 0], wires=wire)
 
 
 class AnsatzSingleRotX(AnsatzSingleRot):
@@ -301,20 +298,12 @@ class AnsatzRot(BaseQVC):
     def ansatz(self, weights, n_layers):
         for n_layer in range(n_layers):
             for wire in range(self.n_qubits_):
-                if len(weights.shape) == 4:
-                    qml.Rot(
-                        weights[:, n_layer, wire, 0],
-                        weights[:, n_layer, wire, 1],
-                        weights[:, n_layer, wire, 2],
-                        wires=wire,
-                    )
-                else:
-                    qml.Rot(
-                        weights[n_layer, wire, 0],
-                        weights[n_layer, wire, 1],
-                        weights[n_layer, wire, 2],
-                        wires=wire,
-                    )
+                qml.Rot(
+                    weights[n_layer, wire, 0],
+                    weights[n_layer, wire, 1],
+                    weights[n_layer, wire, 2],
+                    wires=wire,
+                )
 
 
 class AnsatzRotCNOT(BaseQVC):
@@ -332,20 +321,12 @@ class AnsatzRotCNOT2(BaseQVC):
     def ansatz(self, weights, n_layers):
         for n_layer in range(n_layers):
             for wire in range(self.n_qubits_):
-                if len(weights.shape) == 4:
-                    qml.Rot(
-                        weights[:, n_layer, wire, 0],
-                        weights[:, n_layer, wire, 1],
-                        weights[:, n_layer, wire, 2],
-                        wires=wire,
-                    )
-                else:
-                    qml.Rot(
-                        weights[n_layer, wire, 0],
-                        weights[n_layer, wire, 1],
-                        weights[n_layer, wire, 2],
-                        wires=wire,
-                    )
+                qml.Rot(
+                    weights[n_layer, wire, 0],
+                    weights[n_layer, wire, 1],
+                    weights[n_layer, wire, 2],
+                    wires=wire,
+                )
                 qml.CNOT([0, 1])
                 qml.CNOT([1, 2])
                 qml.CNOT([2, 3])
