@@ -937,6 +937,184 @@ class AnsatzMaouaki9(BaseQVC):
             qml.RX(weights[n_layer, 3], wires=1)
 
 
+class AnsatzEnt1(BaseQVC):
+    def get_weights(self) -> np.ndarray:
+        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
+        return np.array(weights, requires_grad=True)
+
+    def get_weights_size(self) -> SizeType:
+        return self.n_layers, 4
+
+    def ansatz(self, weights: np.ndarray, n_layers: int) -> None:
+        for n_layer in range(n_layers):
+            qml.H(wires=0)
+            qml.H(wires=1)
+            qml.H(wires=2)
+            qml.H(wires=3)
+
+            qml.RX(weights[n_layer, 0], wires=3)
+            qml.RX(weights[n_layer, 1], wires=2)
+            qml.RX(weights[n_layer, 2], wires=0)
+            qml.RX(weights[n_layer, 3], wires=1)
+
+
+class AnsatzEnt2(BaseQVC):
+    def get_weights(self) -> np.ndarray:
+        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
+        return np.array(weights, requires_grad=True)
+
+    def get_weights_size(self) -> SizeType:
+        return self.n_layers, 4
+
+    def ansatz(self, weights: np.ndarray, n_layers: int) -> None:
+        for n_layer in range(n_layers):
+            qml.H(wires=0)
+            qml.H(wires=1)
+            qml.H(wires=2)
+            qml.H(wires=3)
+
+            qml.CNOT(wires=[2, 3])
+
+            qml.CNOT(wires=[1, 2])
+            qml.RX(weights[n_layer, 0], wires=3)
+
+            qml.CNOT(wires=[0, 1])
+            qml.RX(weights[n_layer, 1], wires=2)
+
+            qml.RX(weights[n_layer, 2], wires=0)
+            qml.RX(weights[n_layer, 3], wires=1)
+
+
+class AnsatzEnt22(BaseQVC):
+    def get_weights(self) -> np.ndarray:
+        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
+        return np.array(weights, requires_grad=True)
+
+    def get_weights_size(self) -> SizeType:
+        return self.n_layers, 4
+
+    def ansatz(self, weights: np.ndarray, n_layers: int) -> None:
+        for n_layer in range(n_layers):
+            qml.H(wires=0)
+            qml.H(wires=1)
+            qml.H(wires=2)
+            qml.H(wires=3)
+
+            qml.CNOT(wires=[0, 1])
+            qml.CNOT(wires=[1, 2])
+            qml.CNOT(wires=[2, 3])
+            qml.CNOT(wires=[3, 0])
+
+            qml.RX(weights[n_layer, 0], wires=0)
+            qml.RX(weights[n_layer, 1], wires=1)
+            qml.RX(weights[n_layer, 2], wires=2)
+            qml.RX(weights[n_layer, 3], wires=3)
+
+
+class AnsatzEnt3(BaseQVC):
+    def get_weights(self) -> np.ndarray:
+        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
+        return np.array(weights, requires_grad=True)
+
+    def get_weights_size(self) -> SizeType:
+        return self.n_layers, 12
+
+    def ansatz(self, weights: np.ndarray, n_layers: int) -> None:
+        for n_layer in range(n_layers):
+            qml.H(wires=0)
+            qml.H(wires=1)
+            qml.H(wires=2)
+            qml.H(wires=3)
+
+            qml.CNOT(wires=[2, 3])
+
+            qml.CNOT(wires=[1, 2])
+            qml.Rot(
+                weights[n_layer, 0], weights[n_layer, 1], weights[n_layer, 2], wires=3
+            )
+
+            qml.CNOT(wires=[0, 1])
+            qml.Rot(
+                weights[n_layer, 3], weights[n_layer, 4], weights[n_layer, 5], wires=2
+            )
+
+            qml.Rot(
+                weights[n_layer, 6], weights[n_layer, 7], weights[n_layer, 8], wires=0
+            )
+            qml.Rot(
+                weights[n_layer, 9], weights[n_layer, 10], weights[n_layer, 11], wires=1
+            )
+
+
+class AnsatzEnt32(BaseQVC):
+    def get_weights(self) -> np.ndarray:
+        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
+        return np.array(weights, requires_grad=True)
+
+    def get_weights_size(self) -> SizeType:
+        return self.n_layers, 12
+
+    def ansatz(self, weights: np.ndarray, n_layers: int) -> None:
+        for n_layer in range(n_layers):
+            qml.H(wires=0)
+            qml.H(wires=1)
+            qml.H(wires=2)
+            qml.H(wires=3)
+
+            qml.CNOT(wires=[0, 1])
+            qml.CNOT(wires=[1, 2])
+            qml.CNOT(wires=[2, 3])
+            qml.CNOT(wires=[3, 0])
+
+            qml.Rot(
+                weights[n_layer, 0], weights[n_layer, 1], weights[n_layer, 2], wires=0
+            )
+            qml.Rot(
+                weights[n_layer, 3], weights[n_layer, 4], weights[n_layer, 5], wires=1
+            )
+            qml.Rot(
+                weights[n_layer, 6], weights[n_layer, 7], weights[n_layer, 8], wires=2
+            )
+            qml.Rot(
+                weights[n_layer, 9], weights[n_layer, 10], weights[n_layer, 11], wires=3
+            )
+
+
+class AnsatzEnt4(BaseQVC):
+    def get_weights(self) -> np.ndarray:
+        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
+        return np.array(weights, requires_grad=True)
+
+    def get_weights_size(self) -> SizeType:
+        return self.n_layers, 12
+
+    def ansatz(self, weights: np.ndarray, n_layers: int) -> None:
+        for n_layer in range(n_layers):
+            qml.H(wires=0)
+            qml.H(wires=1)
+            qml.H(wires=2)
+            qml.H(wires=3)
+
+            qml.CZ(wires=[2, 3])
+
+            qml.CZ(wires=[1, 2])
+            qml.Rot(
+                weights[n_layer, 0], weights[n_layer, 1], weights[n_layer, 2], wires=3
+            )
+
+            qml.CZ(wires=[0, 1])
+            qml.Rot(
+                weights[n_layer, 3], weights[n_layer, 4], weights[n_layer, 5], wires=2
+            )
+
+            qml.Rot(
+                weights[n_layer, 6], weights[n_layer, 7], weights[n_layer, 8], wires=0
+            )
+            qml.Rot(
+                weights[n_layer, 9], weights[n_layer, 10], weights[n_layer, 11], wires=1
+            )
+
+
 class AnsatzMaouaki7(BaseQVC):
     def get_weights(self) -> np.ndarray:
         weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
@@ -1003,6 +1181,53 @@ class AnsatzMaouaki11(BaseQVC):
             qml.RZ(weights[n_layer, 11], wires=2)
 
             qml.CNOT(wires=[2, 1])
+
+
+class AnsatzMaouaki6(BaseQVC):
+    def get_weights(self) -> np.ndarray:
+        weights = 0.01 * self.random_state_.normal(size=self.get_weights_size())
+        return np.array(weights, requires_grad=True)
+
+    def get_weights_size(self) -> SizeType:
+        return self.n_layers, 28
+
+    def ansatz(self, weights: np.ndarray, n_layers: int) -> None:
+        for n_layer in range(n_layers):
+            qml.RX(weights[n_layer, 0], wires=0)
+            qml.RX(weights[n_layer, 1], wires=1)
+            qml.RX(weights[n_layer, 2], wires=2)
+            qml.RX(weights[n_layer, 3], wires=3)
+
+            qml.RZ(weights[n_layer, 4], wires=0)
+            qml.RZ(weights[n_layer, 5], wires=1)
+            qml.RZ(weights[n_layer, 6], wires=2)
+            qml.RZ(weights[n_layer, 7], wires=3)
+
+            qml.CRX(weights[n_layer, 8], wires=[3, 2])
+            qml.CRX(weights[n_layer, 9], wires=[3, 1])
+            qml.CRX(weights[n_layer, 10], wires=[3, 0])
+
+            qml.CRX(weights[n_layer, 11], wires=[2, 3])
+            qml.CRX(weights[n_layer, 12], wires=[2, 1])
+            qml.CRX(weights[n_layer, 13], wires=[2, 0])
+
+            qml.CRX(weights[n_layer, 14], wires=[1, 3])
+            qml.CRX(weights[n_layer, 15], wires=[1, 2])
+            qml.CRX(weights[n_layer, 16], wires=[1, 0])
+
+            qml.CRX(weights[n_layer, 17], wires=[0, 3])
+            qml.CRX(weights[n_layer, 18], wires=[0, 2])
+            qml.CRX(weights[n_layer, 19], wires=[0, 1])
+
+            qml.RX(weights[n_layer, 20], wires=0)
+            qml.RX(weights[n_layer, 21], wires=1)
+            qml.RX(weights[n_layer, 22], wires=2)
+            qml.RX(weights[n_layer, 23], wires=3)
+
+            qml.RZ(weights[n_layer, 24], wires=0)
+            qml.RZ(weights[n_layer, 25], wires=1)
+            qml.RZ(weights[n_layer, 26], wires=2)
+            qml.RZ(weights[n_layer, 27], wires=3)
 
 
 class ScikitBase:
@@ -1230,6 +1455,13 @@ def get_model_classifier(args, seed):
         "ensemble_hardvoting_qvc_all": HardVotingQVCAll,
         "ensemble_softvoting_classic": SoftVotingClassic,
         "ensemble_hardvoting_classic": HardVotingClassic,
+        "ent1": AnsatzEnt1,
+        "ent2": AnsatzEnt2,
+        "ent22": AnsatzEnt22,
+        "ent3": AnsatzEnt3,
+        "ent32": AnsatzEnt32,
+        "ent4": AnsatzEnt4,
+        "maouaki6": AnsatzMaouaki6,
     }
     model_name = args.model_classifier
 
