@@ -18,13 +18,6 @@ def read_summary(results_path):
             **run["config"],
             **run["summary"],
         }
-        if (
-            (current_run["model_transformer"] == "all-mpnet-base-v2")
-            and (current_run["model_classifier"] == "knn")
-            and (current_run["n_features"] == 32)
-            and (current_run["n_qubits"] == 5)
-        ):
-            continue
         new_summary.append(current_run)
 
     df = pd.DataFrame(new_summary)
