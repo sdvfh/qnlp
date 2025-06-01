@@ -28,8 +28,6 @@ def get_args_hash(args):
 def compute_metrics(y_test, y_pred, testing, model_has_proba=False):
     if model_has_proba:
         y_pred_round = y_pred[:, 1].round()
-        if not testing:
-            wandb.log({"roc": wandb.plot.roc_curve(y_test, y_pred)})
     else:
         y_pred_round = y_pred
 
