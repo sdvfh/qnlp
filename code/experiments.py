@@ -13,7 +13,7 @@ import wandb
 def run(args, args_hash, config, seed, x_train, y_train, x_test, y_test, testing):
     config["seed"] = seed
     if not testing:
-        wandb.init(entity="svf", project="qnlp", group=args_hash, config=config)
+        wandb.init(entity="svf", project="qnlp2", group=args_hash, config=config)
     print(
         f"Running {args.model_classifier} for "
         f"{args.dataset!r} dataset with "
