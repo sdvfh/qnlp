@@ -108,7 +108,7 @@ if __name__ == "__main__":
     config["hash"] = args_hash
 
     if not testing:
-        if run_already_logged("svf/qnlp", args_hash):
+        if run_already_logged("svf/qnlp2", args_hash):
             print("Skipping registered run.")
             sys.exit(0)
 
