@@ -62,6 +62,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         self,
         X,
         y,
+        testing,
         sample_weight=None,
     ):
         X = check_array(X)
@@ -90,8 +91,9 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         train_cost = self.compute_train_cost(X, y, sample_weight)
 
         self.loss_curve_ = [train_cost]
-        wandb.log({"loss": float(train_cost)})
-        len_train: int = X.shape[0]
+        if not testing:
+            wandb.log({"loss": float(train_cost)})
+        len_train = X.shape[0]
 
         for n_iter in range(1, self.max_iter + 1):
             self.n_iter_ = n_iter
@@ -128,7 +130,8 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
 
             train_cost = self.compute_train_cost(X, y, sample_weight)
             self.loss_curve_.append(train_cost)
-            wandb.log({"loss": float(train_cost)})
+            if not testing:
+                wandb.log({"loss": float(train_cost)})
             print(f"Epoch: {n_iter:5d} | Training Cost: {train_cost:0.7f}")
 
         return self
@@ -698,7 +701,7 @@ class ScikitBase:
         }
         self._model = self._model_template(**self._parameters)
 
-    def fit(self, X, y, sample_weight=None):
+    def fit(self, X, y, testing, sample_weight=None):
         self._model.fit(X, y, sample_weight=sample_weight)
 
     def predict_proba(self, X):
@@ -755,7 +758,7 @@ class KNN(ScikitBase):
     def __init__(self, *args, **kwargs):
         self._model = self._model_template()
 
-    def fit(self, X, y, sample_weight=None):
+    def fit(self, X, y, testing, sample_weight=None):
         self._model.fit(X, y)
 
 
@@ -763,7 +766,7 @@ class MLP(ScikitBase):
     _model_template = MLPClassifier
     _parameters_template = {"verbose": True, "hidden_layer_sizes": ()}
 
-    def fit(self, X, y, sample_weight=None):
+    def fit(self, X, y, testing, sample_weight=None):
         self._model.fit(X, y)
 
 

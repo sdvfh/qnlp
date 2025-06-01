@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import uuid
+from pprint import pprint
 
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 
@@ -24,10 +25,11 @@ def get_args_hash(args):
     return hashlib.md5(args_json.encode()).hexdigest()
 
 
-def compute_metrics(y_test, y_pred, model_has_proba=False):
+def compute_metrics(y_test, y_pred, testing, model_has_proba=False):
     if model_has_proba:
         y_pred_round = y_pred[:, 1].round()
-        wandb.log({"roc": wandb.plot.roc_curve(y_test, y_pred)})
+        if not testing:
+            wandb.log({"roc": wandb.plot.roc_curve(y_test, y_pred)})
     else:
         y_pred_round = y_pred
 
@@ -37,4 +39,7 @@ def compute_metrics(y_test, y_pred, model_has_proba=False):
         "precision": precision_score(y_test, y_pred_round),
         "recall": recall_score(y_test, y_pred_round),
     }
-    wandb.log(metrics)
+    if testing:
+        pprint(metrics)
+    else:
+        wandb.log(metrics)
