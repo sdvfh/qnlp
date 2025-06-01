@@ -80,7 +80,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         self.classes_ = unique_labels(y)
         self.random_state_ = check_random_state(self.random_state)
 
-        opt = qml.MomentumQNGOptimizer()
+        opt = qml.optimize.AdamOptimizer()
 
         self.weights_ = self.get_weights()
         self.bias_ = np.array(0.0, requires_grad=True)
