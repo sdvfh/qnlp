@@ -1,6 +1,7 @@
 import pickle
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from scipy.stats import wilcoxon
 from statsmodels.stats.multitest import multipletests
@@ -65,7 +66,8 @@ df = read_summary(results_path)
 dataset_name = datasets[0]
 
 dataset = df[
-    (df["dataset"] == dataset_name) & (df["model_transformer"] == "all-mpnet-base-v2")
+    (df["dataset"] == dataset_name)
+    & (df["model_transformer"] == "tomaarsen/mpnet-base-nli-matryoshka")
 ]
 dataset["model_name"] = (
     dataset["model_classifier"]
@@ -76,6 +78,7 @@ dataset["model_name"] = (
 )
 dataset = dataset.pivot(index="seed", columns="model_name", values="f1")
 
+all_values = {}
 n_features_comp = {}
 for model in models["quantum"]:
     for n_layer in [1, 10]:
@@ -83,12 +86,25 @@ for model in models["quantum"]:
         for n_features in [16, 32, 768]:
             values[n_features] = dataset[
                 model + "_" + str(n_features) + "_" + str(n_layer)
-            ].tolist()
+            ].values
+        all_values[model + "_" + str(n_features) + "_" + str(n_layer)] = values
         results_multipletests = multipletests(
             [
-                wilcoxon(values[768], values[32]).pvalue,
-                wilcoxon(values[32], values[16]).pvalue,
-                wilcoxon(values[768], values[16]).pvalue,
+                (
+                    1
+                    if np.isnan(wilcoxon(values[768], values[32]).pvalue)
+                    else wilcoxon(values[768], values[32]).pvalue
+                ),
+                (
+                    1
+                    if np.isnan(wilcoxon(values[32], values[16]).pvalue)
+                    else wilcoxon(values[32], values[16]).pvalue
+                ),
+                (
+                    1
+                    if np.isnan(wilcoxon(values[768], values[16]).pvalue)
+                    else wilcoxon(values[768], values[16]).pvalue
+                ),
             ],
             method="holm",
         )
