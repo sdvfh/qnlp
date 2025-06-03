@@ -18,13 +18,6 @@ def read_summary(results_path):
             **run["config"],
             **run["summary"],
         }
-        if (
-            (current_run["model_transformer"] == "all-mpnet-base-v2")
-            and (current_run["model_classifier"] == "knn")
-            and (current_run["n_features"] == 32)
-            and (current_run["n_qubits"] == 5)
-        ):
-            continue
         new_summary.append(current_run)
 
     df = pd.DataFrame(new_summary)
@@ -33,10 +26,24 @@ def read_summary(results_path):
 
 results_path = Path(__file__).parent.parent / "results"
 
-datasets = ["chatgpt_easy", "chatgpt_medium", "chatgpt_hard"]
+datasets = ["chatgpt_easy"]
 models = {
-    "quantum": ["singlerotx", "singleroty", "singlerotz", "rot", "rotcnot"],
-    "classic": [
+    "quantum": [
+        "singlerotx",
+        "singleroty",
+        "singlerotz",
+        "rot",
+        "rotcnot",
+        "maouaki1",
+        "maouaki6",
+        "maouaki9",
+        "maouaki15",
+        "ent1",
+        "ent2",
+        "ent3",
+        "ent4",
+    ],
+    "classical": [
         "svmrbf",
         "svmlinear",
         "svmpoly",
@@ -46,13 +53,11 @@ models = {
         "mlp",
     ],
 }
-n_layers = [1, 10]
+
 df = read_summary(results_path)
 df = df[df["model_classifier"] != "rotcnot"]
 
-datasets = [("chatgpt_easy", 5), ("chatgpt_medium", 5), ("chatgpt_hard", 5), ("sst", 4)]
-
-for dataset_name, n_qubits in datasets:
+for dataset_name, n_qubits in [("chatgpt_easy", 4)]:
 
     dataset = df[
         (df["dataset"] == dataset_name)
@@ -70,6 +75,6 @@ for dataset_name, n_qubits in datasets:
         dataset.values, dataset.columns, reverse=True, return_p_values=True, alpha=0.05
     )
 
-    fig.set_size_inches(30, 30)
-    fig.tight_layout()
+    fig.set_size_inches(40, 40)
+    fig.subplots_adjust(bottom=0.15)
     fig.show()

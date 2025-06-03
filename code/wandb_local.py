@@ -4,7 +4,7 @@ from pathlib import Path
 import wandb
 
 api = wandb.Api(timeout=60)
-runs = api.runs("svf/qnlp")
+runs = api.runs("svf/qnlp2")
 
 history = []
 for run in runs:

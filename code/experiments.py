@@ -10,12 +10,14 @@ from utils import compute_metrics, get_args_hash
 import wandb
 
 
-def run(args, args_hash, config, seed, x_train, y_train, x_test, y_test):
+def run(args, args_hash, config, seed, x_train, y_train, x_test, y_test, testing):
     config["seed"] = seed
-    wandb.init(entity="svf", project="qnlp", group=args_hash, config=config)
+    if not testing:
+        wandb.init(entity="svf", project="qnlp2", group=args_hash, config=config)
     print(
         f"Running {args.model_classifier} for "
         f"{args.dataset!r} dataset with "
+        f"{args.model_transformer} model transformer, "
         f"{args.n_layers} layers and "
         f"seed {seed}."
     )
@@ -28,9 +30,11 @@ def run(args, args_hash, config, seed, x_train, y_train, x_test, y_test):
     except AttributeError:
         y_pred = model.predict(x_test)
         model_has_proba = False
-    model.save(y_pred, model_has_proba=model_has_proba)
-    compute_metrics(y_test, y_pred, model_has_proba=model_has_proba)
-    wandb.finish()
+    if not testing:
+        model.save(y_pred, model_has_proba=model_has_proba)
+    compute_metrics(y_test, y_pred, testing, model_has_proba=model_has_proba)
+    if not testing:
+        wandb.finish()
 
 
 def run_already_logged(project, config_hash):
@@ -94,15 +98,20 @@ if __name__ == "__main__":
         default=10,
     )
 
+    parser.add_argument("--testing", action="store_true", default=False)
+
     args = parser.parse_args()
 
     config = vars(args)
+    testing = config.pop("testing")
     args_hash = get_args_hash(args)
+    args.testing = testing
     config["hash"] = args_hash
 
-    if run_already_logged("svf/qnlp", args_hash):
-        print("Skipping registered run.")
-        sys.exit(0)
+    if not testing:
+        if run_already_logged("svf/qnlp2", args_hash):
+            print("Skipping registered run.")
+            sys.exit(0)
 
     # TODO: make verification on all parameters
 
@@ -113,7 +122,11 @@ if __name__ == "__main__":
         args.dataset, args.model_transformer, args.n_features, paths
     )
 
-    Parallel(n_jobs=int(args.n_repetitions))(
-        delayed(run)(args, args_hash, config, seed, x_train, y_train, x_test, y_test)
+    n_jobs = 1 if testing else int(args.n_repetitions)
+
+    Parallel(n_jobs=n_jobs)(
+        delayed(run)(
+            args, args_hash, config, seed, x_train, y_train, x_test, y_test, testing
+        )
         for seed in range(args.n_repetitions)
     )
