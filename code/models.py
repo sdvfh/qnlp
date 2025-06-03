@@ -371,41 +371,12 @@ class AnsatzMaouaki6(BaseQVC):
                 qml.RZ(weights[n_layer, wire, -1], wires=wire)
 
 
-class AnsatzMaouaki7(BaseQVC):
-    def get_weights_size(self):
-        return (
-            self.n_layers,
-            self.n_qubits_,
-            4 + (self.n_qubits_ // 2) + ((self.n_qubits_ - 1) // 2),
-        )
-
-    def ansatz(self, weights, n_layers):
-        for n_layer in range(n_layers):
-            for wire in range(self.n_qubits_):
-                qml.RX(weights[n_layer, wire, 0], wires=wire)
-                qml.RZ(weights[n_layer, wire, 1], wires=wire)
-
-            ent_idx = 2
-            for wire in range(0, self.n_qubits_ - 1, 2):
-                qml.CRZ(weights[n_layer, wire, ent_idx], wires=[wire, wire + 1])
-                ent_idx += 1
-
-            for wire in range(self.n_qubits_):
-                qml.RX(weights[n_layer, wire, ent_idx], wires=wire)
-                qml.RZ(weights[n_layer, wire, ent_idx + 1], wires=wire)
-            ent_idx += 2
-
-            for wire in range(1, self.n_qubits_ - 1, 2):
-                qml.CRZ(weights[n_layer, wire, ent_idx], wires=[wire, wire + 1])
-                ent_idx += 1
-
-
 class AnsatzMaouakiQuasi7(BaseQVC):
     def get_weights_size(self):
         return (
             self.n_layers,
             self.n_qubits_,
-            2 + (self.n_qubits_ // 2) + ((self.n_qubits_ - 1) // 2),
+            self.n_qubits_ + 1,
         )
 
     def ansatz(self, weights, n_layers):
@@ -414,14 +385,42 @@ class AnsatzMaouakiQuasi7(BaseQVC):
                 qml.RX(weights[n_layer, wire, 0], wires=wire)
                 qml.RZ(weights[n_layer, wire, 1], wires=wire)
 
-            ent_idx = 2
+            ent_idx = -1
             for wire in range(0, self.n_qubits_ - 1, 2):
                 qml.CRZ(weights[n_layer, wire, ent_idx], wires=[wire, wire + 1])
-                ent_idx += 1
+                ent_idx -= 1
 
             for wire in range(1, self.n_qubits_ - 1, 2):
                 qml.CRZ(weights[n_layer, wire, ent_idx], wires=[wire, wire + 1])
-                ent_idx += 1
+                ent_idx -= 1
+
+
+class AnsatzMaouaki7(BaseQVC):
+    def get_weights_size(self):
+        return (
+            self.n_layers,
+            self.n_qubits_,
+            self.n_qubits_ + 3,
+        )
+
+    def ansatz(self, weights, n_layers):
+        for n_layer in range(n_layers):
+            for wire in range(self.n_qubits_):
+                qml.RX(weights[n_layer, wire, 0], wires=wire)
+                qml.RZ(weights[n_layer, wire, 1], wires=wire)
+
+            ent_idx = -1
+            for wire in range(0, self.n_qubits_ - 1, 2):
+                qml.CRZ(weights[n_layer, wire, ent_idx], wires=[wire, wire + 1])
+                ent_idx -= 1
+
+            for wire in range(self.n_qubits_):
+                qml.RX(weights[n_layer, wire, 2], wires=wire)
+                qml.RZ(weights[n_layer, wire, 3], wires=wire)
+
+            for wire in range(1, self.n_qubits_ - 1, 2):
+                qml.CRZ(weights[n_layer, wire, ent_idx], wires=[wire, wire + 1])
+                ent_idx -= 1
 
 
 class AnsatzMaouaki9(BaseQVC):
@@ -722,8 +721,8 @@ def get_model_classifier(args, seed):
         "rotcnot": AnsatzRotCNOT,
         "maouaki1": AnsatzMaouaki1,
         "maouaki6": AnsatzMaouaki6,
-        "maouaki7": AnsatzMaouaki7,
         "maouakiquasi7": AnsatzMaouakiQuasi7,
+        "maouaki7": AnsatzMaouaki7,
         "maouaki9": AnsatzMaouaki9,
         "maouaki15": AnsatzMaouaki15,
         "ent1": AnsatzEnt1,
