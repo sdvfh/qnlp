@@ -23,7 +23,7 @@ def run(args, args_hash, config, seed, x_train, y_train, x_test, y_test, testing
     )
 
     model = get_model_classifier(args, seed)
-    model.fit(x_train, y_train, testing)
+    model.fit(x_train, y_train)
     model_has_proba = True
     try:
         y_pred = model.predict_proba(x_test)
@@ -105,6 +105,7 @@ if __name__ == "__main__":
     config = vars(args)
     testing = config.pop("testing")
     args_hash = get_args_hash(args)
+    args.testing = testing
     config["hash"] = args_hash
 
     if not testing:

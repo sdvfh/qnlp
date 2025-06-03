@@ -9,7 +9,10 @@ import pennylane as qml
 from pennylane import numpy as np
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.ensemble import (
+    AdaBoostClassifier,
+    BaggingClassifier,
     RandomForestClassifier,
+    VotingClassifier,
 )
 from sklearn.linear_model import LogisticRegression
 from sklearn.neighbors import KNeighborsClassifier
@@ -48,18 +51,19 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         batch_size=32,
         random_state=None,
         n_qubits_=None,
+        testing=False,
     ):
         self.n_layers = n_layers
         self.max_iter = max_iter
         self.batch_size = batch_size
         self.random_state = random_state
         self.n_qubits_ = n_qubits_
+        self.testing = testing
 
     def fit(
         self,
         X,
         y,
-        testing,
         sample_weight=None,
     ):
         X = check_array(X)
@@ -88,7 +92,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         train_cost = self.compute_train_cost(X, y, sample_weight)
 
         self.loss_curve_ = [train_cost]
-        if not testing:
+        if not self.testing:
             wandb.log({"loss": float(train_cost)})
         len_train = X.shape[0]
 
@@ -127,7 +131,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
 
             train_cost = self.compute_train_cost(X, y, sample_weight)
             self.loss_curve_.append(train_cost)
-            if not testing:
+            if not self.testing:
                 wandb.log({"loss": float(train_cost)})
             print(f"Epoch: {n_iter:5d} | Training Cost: {train_cost:0.7f}")
 
@@ -291,6 +295,19 @@ class AnsatzSingleRotZ(AnsatzSingleRot):
     _id = 3
 
 
+class AnsatzMaouaki1(BaseQVC):
+    _id = 4
+
+    def get_weights_size(self):
+        return self.n_layers, self.n_qubits_, 2
+
+    def ansatz(self, weights, n_layers):
+        for n_layer in range(n_layers):
+            for wire in range(self.n_qubits_):
+                qml.RX(weights[n_layer, wire, 0], wires=wire)
+                qml.RZ(weights[n_layer, wire, 1], wires=wire)
+
+
 class AnsatzRot(BaseQVC):
     _id = 5
 
@@ -327,52 +344,92 @@ class AnsatzRotCNOT(BaseQVC):
                 qml.CNOT(wires=[wire, (wire + 1) % self.n_qubits_])
 
 
-class AnsatzMaouakiBase(BaseQVC):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if self.n_qubits_ != 4:
-            raise NotImplementedError(
-                "This ansatz only works for circuit with 4 qubits."
-            )
-
-
-class AnsatzMaouaki1(BaseQVC):
-    _id = 4
+class AnsatzEnt1(BaseQVC):
+    _id = 7
 
     def get_weights_size(self):
-        return self.n_layers, self.n_qubits_, 2
+        return self.n_layers, self.n_qubits_, 1
 
     def ansatz(self, weights, n_layers):
         for n_layer in range(n_layers):
             for wire in range(self.n_qubits_):
+                qml.H(wires=wire)
+            for wire in range(self.n_qubits_):
                 qml.RX(weights[n_layer, wire, 0], wires=wire)
-                qml.RZ(weights[n_layer, wire, 1], wires=wire)
 
 
-class AnsatzMaouaki6(BaseQVC):
-    _id = 15
+class AnsatzMaouaki9(BaseQVC):
+    _id = 8
 
     def get_weights_size(self):
-        return self.n_layers, self.n_qubits_, self.n_qubits_ + 3
+        return self.n_layers, self.n_qubits_, 1
 
     def ansatz(self, weights, n_layers):
         for n_layer in range(n_layers):
             for wire in range(self.n_qubits_):
+                qml.H(wires=wire)
+            for wire in range(self.n_qubits_ - 1):
+                qml.CZ(wires=[wire, wire + 1])
+            for wire in range(self.n_qubits_):
                 qml.RX(weights[n_layer, wire, 0], wires=wire)
-                qml.RZ(weights[n_layer, wire, 1], wires=wire)
+
+
+class AnsatzEnt4(BaseQVC):
+    _id = 9
+
+    def get_weights_size(self):
+        return self.n_layers, self.n_qubits_, 3
+
+    def ansatz(self, weights, n_layers):
+        for n_layer in range(n_layers):
+            for wire in range(self.n_qubits_):
+                qml.H(wires=wire)
+            for wire in range(self.n_qubits_ - 1):
+                qml.CZ(wires=[wire, wire + 1])
+            for wire in range(self.n_qubits_):
+                qml.Rot(
+                    weights[n_layer, wire, 0],
+                    weights[n_layer, wire, 1],
+                    weights[n_layer, wire, 2],
+                    wires=wire,
+                )
+
+
+class AnsatzEnt2(BaseQVC):
+    _id = 10
+
+    def get_weights_size(self):
+        return self.n_layers, self.n_qubits_, 1
+
+    def ansatz(self, weights, n_layers):
+        for n_layer in range(n_layers):
+            for wire in range(self.n_qubits_):
+                qml.H(wires=wire)
             for wire in range(self.n_qubits_):
                 qml.CNOT(wires=[wire, (wire + 1) % self.n_qubits_])
-            for wire_ctrl in range(self.n_qubits_):
-                ent_idx = 2
-                for wire_targ in range(self.n_qubits_):
-                    if wire_ctrl == wire_targ:
-                        continue
-                    angle_crx = weights[n_layer, wire_ctrl, ent_idx]
-                    qml.CRX(angle_crx, wires=[wire_ctrl, wire_targ])
-                    ent_idx += 1
             for wire in range(self.n_qubits_):
-                qml.RX(weights[n_layer, wire, -2], wires=wire)
-                qml.RZ(weights[n_layer, wire, -1], wires=wire)
+                qml.RX(weights[n_layer, wire, 0], wires=wire)
+
+
+class AnsatzEnt3(BaseQVC):
+    _id = 11
+
+    def get_weights_size(self):
+        return self.n_layers, self.n_qubits_, 3
+
+    def ansatz(self, weights, n_layers):
+        for n_layer in range(n_layers):
+            for wire in range(self.n_qubits_):
+                qml.H(wires=wire)
+            for wire in range(self.n_qubits_):
+                qml.CNOT(wires=[wire, (wire + 1) % self.n_qubits_])
+            for wire in range(self.n_qubits_):
+                qml.Rot(
+                    weights[n_layer, wire, 0],
+                    weights[n_layer, wire, 1],
+                    weights[n_layer, wire, 2],
+                    wires=wire,
+                )
 
 
 class AnsatzMaouakiQuasi7(BaseQVC):
@@ -431,22 +488,6 @@ class AnsatzMaouaki7(BaseQVC):
                 ent_idx -= 1
 
 
-class AnsatzMaouaki9(BaseQVC):
-    _id = 8
-
-    def get_weights_size(self):
-        return self.n_layers, self.n_qubits_, 1
-
-    def ansatz(self, weights, n_layers):
-        for n_layer in range(n_layers):
-            for wire in range(self.n_qubits_):
-                qml.H(wires=wire)
-            for wire in range(self.n_qubits_ - 1):
-                qml.CZ(wires=[wire, wire + 1])
-            for wire in range(self.n_qubits_):
-                qml.RX(weights[n_layer, wire, 0], wires=wire)
-
-
 class AnsatzMaouaki15(BaseQVC):
     _id = 14
 
@@ -465,76 +506,30 @@ class AnsatzMaouaki15(BaseQVC):
                 qml.CNOT(wires=[wire, (wire + 3) % self.n_qubits_])
 
 
-class AnsatzEnt1(BaseQVC):
-    _id = 7
+class AnsatzMaouaki6(BaseQVC):
+    _id = 15
 
     def get_weights_size(self):
-        return self.n_layers, self.n_qubits_, 1
+        return self.n_layers, self.n_qubits_, self.n_qubits_ + 3
 
     def ansatz(self, weights, n_layers):
         for n_layer in range(n_layers):
-            for wire in range(self.n_qubits_):
-                qml.H(wires=wire)
             for wire in range(self.n_qubits_):
                 qml.RX(weights[n_layer, wire, 0], wires=wire)
-
-
-class AnsatzEnt2(BaseQVC):
-    _id = 10
-
-    def get_weights_size(self):
-        return self.n_layers, self.n_qubits_, 1
-
-    def ansatz(self, weights, n_layers):
-        for n_layer in range(n_layers):
-            for wire in range(self.n_qubits_):
-                qml.H(wires=wire)
+                qml.RZ(weights[n_layer, wire, 1], wires=wire)
             for wire in range(self.n_qubits_):
                 qml.CNOT(wires=[wire, (wire + 1) % self.n_qubits_])
+            for wire_ctrl in range(self.n_qubits_):
+                ent_idx = 2
+                for wire_targ in range(self.n_qubits_):
+                    if wire_ctrl == wire_targ:
+                        continue
+                    angle_crx = weights[n_layer, wire_ctrl, ent_idx]
+                    qml.CRX(angle_crx, wires=[wire_ctrl, wire_targ])
+                    ent_idx += 1
             for wire in range(self.n_qubits_):
-                qml.RX(weights[n_layer, wire, 0], wires=wire)
-
-
-class AnsatzEnt3(BaseQVC):
-    _id = 11
-
-    def get_weights_size(self):
-        return self.n_layers, self.n_qubits_, 3
-
-    def ansatz(self, weights, n_layers):
-        for n_layer in range(n_layers):
-            for wire in range(self.n_qubits_):
-                qml.H(wires=wire)
-            for wire in range(self.n_qubits_):
-                qml.CNOT(wires=[wire, (wire + 1) % self.n_qubits_])
-            for wire in range(self.n_qubits_):
-                qml.Rot(
-                    weights[n_layer, wire, 0],
-                    weights[n_layer, wire, 1],
-                    weights[n_layer, wire, 2],
-                    wires=wire,
-                )
-
-
-class AnsatzEnt4(BaseQVC):
-    _id = 9
-
-    def get_weights_size(self):
-        return self.n_layers, self.n_qubits_, 3
-
-    def ansatz(self, weights, n_layers):
-        for n_layer in range(n_layers):
-            for wire in range(self.n_qubits_):
-                qml.H(wires=wire)
-            for wire in range(self.n_qubits_ - 1):
-                qml.CZ(wires=[wire, wire + 1])
-            for wire in range(self.n_qubits_):
-                qml.Rot(
-                    weights[n_layer, wire, 0],
-                    weights[n_layer, wire, 1],
-                    weights[n_layer, wire, 2],
-                    wires=wire,
-                )
+                qml.RX(weights[n_layer, wire, -2], wires=wire)
+                qml.RZ(weights[n_layer, wire, -1], wires=wire)
 
 
 class ScikitBase:
@@ -549,7 +544,7 @@ class ScikitBase:
         }
         self._model = self._model_template(**self._parameters)
 
-    def fit(self, X, y, testing, sample_weight=None):
+    def fit(self, X, y, sample_weight=None):
         self._model.fit(X, y, sample_weight=sample_weight)
 
     def predict_proba(self, X):
@@ -606,7 +601,7 @@ class KNN(ScikitBase):
     def __init__(self, *args, **kwargs):
         self._model = self._model_template()
 
-    def fit(self, X, y, testing, sample_weight=None):
+    def fit(self, X, y, sample_weight=None):
         self._model.fit(X, y)
 
 
@@ -614,122 +609,235 @@ class MLP(ScikitBase):
     _model_template = MLPClassifier
     _parameters_template = {"verbose": True, "hidden_layer_sizes": ()}
 
-    def fit(self, X, y, testing, sample_weight=None):
+    def fit(self, X, y, sample_weight=None):
         self._model.fit(X, y)
 
 
-# class AdaBoostRotCNOT(ScikitBase):
-#     def __init__(self, *args, **kwargs):
-#         qvc = AnsatzRotCNOT(*args, **kwargs)
-#         self._model = AdaBoostClassifier(
-#             estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
-#         )
+class AdaBoostRotCNOT(ScikitBase):
+    def __init__(self, *args, **kwargs):
+        qvc = AnsatzRotCNOT(*args, **kwargs)
+        self._model = AdaBoostClassifier(
+            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
+        )
 
 
-# class BaggingRotCNOT(ScikitBase):
-#     def __init__(self, *args, **kwargs):
-#         qvc = AnsatzRotCNOT(*args, **kwargs)
-#         self._model = BaggingClassifier(
-#             estimator=qvc,
-#             n_estimators=100,
-#             random_state=kwargs.get("random_state"),
-#             bootstrap_features=True,
-#         )
+class BaggingRotCNOT(ScikitBase):
+    def __init__(self, *args, **kwargs):
+        qvc = AnsatzRotCNOT(*args, **kwargs)
+        self._model = BaggingClassifier(
+            estimator=qvc,
+            n_estimators=100,
+            random_state=kwargs.get("random_state"),
+            bootstrap_features=True,
+        )
 
 
-# class VotingQVC(ScikitBase):
-#     voting_method = None
-#
-#     def __init__(self, *args, **kwargs):
-#         qvcs = [
-#             ("single_rot_x", AnsatzSingleRotX(*args, **kwargs)),
-#             ("single_rot_y", AnsatzSingleRotY(*args, **kwargs)),
-#             ("single_rot_z", AnsatzSingleRotZ(*args, **kwargs)),
-#             ("rot", AnsatzRot(*args, **kwargs)),
-#             ("rotcnot", AnsatzRotCNOT(*args, **kwargs)),
-#         ]
-#         self._model = VotingClassifier(estimators=qvcs, voting=self.voting_method)
+class AdaBoostEnt4(ScikitBase):
+    def __init__(self, *args, **kwargs):
+        qvc = AnsatzEnt4(*args, **kwargs)
+        self._model = AdaBoostClassifier(
+            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
+        )
 
 
-# class SoftVotingQVC(VotingQVC):
-#     voting_method = "soft"
+class BaggingEnt4(ScikitBase):
+    def __init__(self, *args, **kwargs):
+        qvc = AnsatzEnt4(*args, **kwargs)
+        self._model = BaggingClassifier(
+            estimator=qvc,
+            n_estimators=100,
+            random_state=kwargs.get("random_state"),
+            bootstrap_features=True,
+        )
 
 
-# class HardVotingQVC(VotingQVC):
-#     voting_method = "hard"
+class AdaBoostMaouaki15(ScikitBase):
+    def __init__(self, *args, **kwargs):
+        qvc = AnsatzMaouaki15(*args, **kwargs)
+        self._model = AdaBoostClassifier(
+            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
+        )
 
 
-# class VotingQVCMaouaki(ScikitBase):
-#     voting_method = None
-#
-#     def __init__(self, *args, **kwargs):
-#         qvcs = [
-#             ("maouaki1", AnsatzMaouaki1(*args, **kwargs)),
-#             ("maouaki7", AnsatzMaouaki7(*args, **kwargs)),
-#             ("maouaki9", AnsatzMaouaki9(*args, **kwargs)),
-#             ("maouaki11", AnsatzMaouaki11(*args, **kwargs)),
-#             ("maouaki15", AnsatzMaouaki15(*args, **kwargs)),
-#         ]
-#         self._model = VotingClassifier(estimators=qvcs, voting=self.voting_method)
+class BaggingMaouaki15(ScikitBase):
+    def __init__(self, *args, **kwargs):
+        qvc = AnsatzMaouaki15(*args, **kwargs)
+        self._model = BaggingClassifier(
+            estimator=qvc,
+            n_estimators=100,
+            random_state=kwargs.get("random_state"),
+            bootstrap_features=True,
+        )
 
 
-# class SoftVotingQVCMaouaki(VotingQVCMaouaki):
-#     voting_method = "soft"
+class Voting(ScikitBase):
+    voting_method = None
+
+    def __init__(self, *args, **kwargs):
+        qvcs = self.get_models(*args, **kwargs)
+        self._model = VotingClassifier(estimators=qvcs, voting=self.voting_method)
+
+    def get_models(self, *args, **kwargs):
+        raise NotImplementedError("Implement this class")
 
 
-# class HardVotingQVCMaouaki(VotingQVCMaouaki):
-#     voting_method = "hard"
+class SoftVoting(Voting):
+    voting_method = "soft"
 
 
-# class VotingQVCAll(ScikitBase):
-#     voting_method = None
-#
-#     def __init__(self, *args, **kwargs):
-#         qvcs = [
-#             ("maouaki1", AnsatzMaouaki1(*args, **kwargs)),
-#             ("maouaki7", AnsatzMaouaki7(*args, **kwargs)),
-#             ("maouaki9", AnsatzMaouaki9(*args, **kwargs)),
-#             ("maouaki11", AnsatzMaouaki11(*args, **kwargs)),
-#             ("maouaki15", AnsatzMaouaki15(*args, **kwargs)),
-#             ("single_rot_x", AnsatzSingleRotX(*args, **kwargs)),
-#             ("single_rot_y", AnsatzSingleRotY(*args, **kwargs)),
-#             ("single_rot_z", AnsatzSingleRotZ(*args, **kwargs)),
-#             ("rot", AnsatzRot(*args, **kwargs)),
-#             ("rotcnot", AnsatzRotCNOT(*args, **kwargs)),
-#         ]
-#         self._model = VotingClassifier(estimators=qvcs, voting=self.voting_method)
+class HardVoting(Voting):
+    voting_method = "hard"
 
 
-# class SoftVotingQVCAll(VotingQVCAll):
-#     voting_method = "soft"
+class Voting_1_2_3(Voting):
+    def get_models(self, *args, **kwargs):
+        return [
+            ("single_rot_x", AnsatzSingleRotX(*args, **kwargs)),
+            ("single_rot_y", AnsatzSingleRotY(*args, **kwargs)),
+            ("single_rot_z", AnsatzSingleRotZ(*args, **kwargs)),
+        ]
 
 
-# class HardVotingQVCAll(VotingQVCAll):
-#     voting_method = "hard"
+class SoftVoting_1_2_3(Voting_1_2_3, SoftVoting):
+    pass
 
 
-# class VotingClassic(ScikitBase):
-#     voting_method = None
-#
-#     def __init__(self, *args, **kwargs):
-#         qvcs = [
-#             ("svmrbf", SVMRBF(*args, **kwargs)._model),
-#             ("svmlinear", SVMLinear(*args, **kwargs)._model),
-#             ("svmpoly", SVMPoly(*args, **kwargs)._model),
-#             ("logistic", MyLogisticRegression(*args, **kwargs)._model),
-#             ("randomforest", RandomForest(*args, **kwargs)._model),
-#             ("knn", KNN(*args, **kwargs)._model),
-#             ("mlp", MLP(*args, **kwargs)._model),
-#         ]
-#         self._model = VotingClassifier(estimators=qvcs, voting=self.voting_method)
+class HardVoting_1_2_3(Voting_1_2_3, HardVoting):
+    pass
 
 
-# class SoftVotingClassic(VotingClassic):
-#     voting_method = "soft"
+class Voting_1_2_3_5(Voting):
+    def get_models(self, *args, **kwargs):
+        return [
+            ("single_rot_x", AnsatzSingleRotX(*args, **kwargs)),
+            ("single_rot_y", AnsatzSingleRotY(*args, **kwargs)),
+            ("single_rot_z", AnsatzSingleRotZ(*args, **kwargs)),
+            ("rot", AnsatzRot(*args, **kwargs)),
+        ]
 
 
-# class HardVotingClassic(VotingClassic):
-#     voting_method = "hard"
+class SoftVoting_1_2_3_5(Voting_1_2_3_5, SoftVoting):
+    pass
+
+
+class HardVoting_1_2_3_5(Voting_1_2_3_5, HardVoting):
+    pass
+
+
+class Voting_1_2_3_5_6(Voting):
+    def get_models(self, *args, **kwargs):
+        return [
+            ("single_rot_x", AnsatzSingleRotX(*args, **kwargs)),
+            ("single_rot_y", AnsatzSingleRotY(*args, **kwargs)),
+            ("single_rot_z", AnsatzSingleRotZ(*args, **kwargs)),
+            ("rot", AnsatzRot(*args, **kwargs)),
+            ("rotcnot", AnsatzRotCNOT(*args, **kwargs)),
+        ]
+
+
+class SoftVoting_1_2_3_5_6(Voting_1_2_3_5_6, SoftVoting):
+    pass
+
+
+class HardVoting_1_2_3_5_6(Voting_1_2_3_5_6, HardVoting):
+    pass
+
+
+class Voting_7_8_9_10_11(Voting):
+    def get_models(self, *args, **kwargs):
+        return [
+            ("maouaki9", AnsatzMaouaki9(*args, **kwargs)),
+            ("ent1", AnsatzEnt1(*args, **kwargs)),
+            ("ent2", AnsatzEnt2(*args, **kwargs)),
+            ("ent3", AnsatzEnt3(*args, **kwargs)),
+            ("ent4", AnsatzEnt4(*args, **kwargs)),
+        ]
+
+
+class SoftVoting_7_8_9_10_11(Voting_7_8_9_10_11, SoftVoting):
+    pass
+
+
+class HardVoting_7_8_9_10_11(Voting_7_8_9_10_11, HardVoting):
+    pass
+
+
+class Voting_12_14_15(Voting):
+    def get_models(self, *args, **kwargs):
+        return [
+            ("maouakiquasi7", AnsatzMaouakiQuasi7(*args, **kwargs)),
+            ("maouaki15", AnsatzMaouaki15(*args, **kwargs)),
+            ("maouaki6", AnsatzMaouaki6(*args, **kwargs)),
+        ]
+
+
+class SoftVoting_12_14_15(Voting_12_14_15, SoftVoting):
+    pass
+
+
+class HardVoting_12_14_15(Voting_12_14_15, HardVoting):
+    pass
+
+
+class AdaBoostLogistic(ScikitBase):
+    def __init__(self, *args, **kwargs):
+        qvc = MyLogisticRegression(*args, **kwargs)._model
+        self._model = AdaBoostClassifier(
+            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
+        )
+
+
+class BaggingLogistic(ScikitBase):
+    def __init__(self, *args, **kwargs):
+        qvc = MyLogisticRegression(*args, **kwargs)._model
+        self._model = BaggingClassifier(
+            estimator=qvc,
+            n_estimators=100,
+            random_state=kwargs.get("random_state"),
+            bootstrap_features=True,
+        )
+
+
+class AdaBoostMLP(ScikitBase):
+    def __init__(self, *args, **kwargs):
+        qvc = MLP(*args, **kwargs)._model
+        self._model = AdaBoostClassifier(
+            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
+        )
+
+
+class VotingSVM(Voting):
+    def get_models(self, *args, **kwargs):
+        return [
+            ("svmrbf", SVMRBF(*args, **kwargs)._model),
+            ("svmpoly", SVMPoly(*args, **kwargs)._model),
+            ("svmlinear", SVMLinear(*args, **kwargs)._model),
+        ]
+
+
+class SoftVotingSVM(VotingSVM, SoftVoting):
+    pass
+
+
+class HardVotingSVM(VotingSVM, HardVoting):
+    pass
+
+
+class VotingLogisticMLPKNN(Voting):
+    def get_models(self, *args, **kwargs):
+        return [
+            ("logistic", MyLogisticRegression(*args, **kwargs)._model),
+            ("mlp", MLP(*args, **kwargs)._model),
+            ("knn", KNN(*args, **kwargs)._model),
+        ]
+
+
+class SoftVotingLogisticMLPKNN(VotingLogisticMLPKNN, SoftVoting):
+    pass
+
+
+class HardVotingLogisticMLPKNN(VotingLogisticMLPKNN, HardVoting):
+    pass
 
 
 def get_model_classifier(args, seed):
@@ -756,7 +864,31 @@ def get_model_classifier(args, seed):
         "randomforest": RandomForest,
         "knn": KNN,
         "mlp": MLP,
+        "adaboost_rotcnot": AdaBoostRotCNOT,
+        "bagging_rotcnot": BaggingRotCNOT,
+        "adaboost_ent4": AdaBoostEnt4,
+        "bagging_ent4": BaggingEnt4,
+        "adaboost_maouaki15": AdaBoostMaouaki15,
+        "bagging_maouaki15": BaggingMaouaki15,
+        "soft_voting_1_2_3": SoftVoting_1_2_3,
+        "hard_voting_1_2_3": HardVoting_1_2_3,
+        "soft_voting_1_2_3_5": SoftVoting_1_2_3_5,
+        "hard_voting_1_2_3_5": HardVoting_1_2_3_5,
+        "soft_voting_1_2_3_5_6": SoftVoting_1_2_3_5_6,
+        "hard_voting_1_2_3_5_6": HardVoting_1_2_3_5_6,
+        "soft_voting_7_8_9_10_11": SoftVoting_7_8_9_10_11,
+        "hard_voting_7_8_9_10_11": HardVoting_7_8_9_10_11,
+        "soft_voting_12_14_15": SoftVoting_12_14_15,
+        "hard_voting_12_14_15": HardVoting_12_14_15,
+        "adaboost_logistic": AdaBoostLogistic,
+        "bagging_logistic": BaggingLogistic,
+        "adaboost_mlp": AdaBoostMLP,
+        "soft_voting_svm": SoftVotingSVM,
+        "hard_voting_svm": HardVotingSVM,
+        "soft_voting_logistic_mlp_knn": SoftVotingLogisticMLPKNN,
+        "hard_voting_logistic_mlp_knn": HardVotingLogisticMLPKNN,
     }
+
     model_name = args.model_classifier
 
     return model_factory[model_name](
@@ -765,4 +897,5 @@ def get_model_classifier(args, seed):
         batch_size=args.batch_size,
         random_state=seed,
         n_qubits_=args.n_qubits,
+        testing=args.testing,
     )
