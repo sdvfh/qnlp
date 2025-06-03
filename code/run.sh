@@ -43,7 +43,7 @@ done
 for dataset in sst; do
   for classifier in "${quantum_classifiers[@]}"; do
     for layers in 1 10; do
-      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 16  --n_qubits 4  -model_classifier "$classifier" --epochs 40 --batch_size 128 --n_repetitions 30 --n_layers "$layers" ;
+      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 16  --n_qubits 4  -model_classifier "$classifier" --epochs 40 --batch_size 256 --n_repetitions 30 --n_layers "$layers" ;
     done
   done
 done
