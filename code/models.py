@@ -337,6 +337,8 @@ class AnsatzMaouakiBase(BaseQVC):
 
 
 class AnsatzMaouaki1(BaseQVC):
+    _id = 4
+
     def get_weights_size(self):
         return self.n_layers, self.n_qubits_, 2
 
@@ -348,6 +350,8 @@ class AnsatzMaouaki1(BaseQVC):
 
 
 class AnsatzMaouaki6(BaseQVC):
+    _id = 15
+
     def get_weights_size(self):
         return self.n_layers, self.n_qubits_, self.n_qubits_ + 3
 
@@ -372,6 +376,8 @@ class AnsatzMaouaki6(BaseQVC):
 
 
 class AnsatzMaouakiQuasi7(BaseQVC):
+    _id = 12
+
     def get_weights_size(self):
         return (
             self.n_layers,
@@ -396,6 +402,8 @@ class AnsatzMaouakiQuasi7(BaseQVC):
 
 
 class AnsatzMaouaki7(BaseQVC):
+    _id = 13
+
     def get_weights_size(self):
         return (
             self.n_layers,
@@ -424,6 +432,8 @@ class AnsatzMaouaki7(BaseQVC):
 
 
 class AnsatzMaouaki9(BaseQVC):
+    _id = 8
+
     def get_weights_size(self):
         return self.n_layers, self.n_qubits_, 1
 
@@ -438,6 +448,8 @@ class AnsatzMaouaki9(BaseQVC):
 
 
 class AnsatzMaouaki15(BaseQVC):
+    _id = 14
+
     def get_weights_size(self):
         return self.n_layers, self.n_qubits_, 2
 
@@ -454,6 +466,8 @@ class AnsatzMaouaki15(BaseQVC):
 
 
 class AnsatzEnt1(BaseQVC):
+    _id = 7
+
     def get_weights_size(self):
         return self.n_layers, self.n_qubits_, 1
 
@@ -466,6 +480,8 @@ class AnsatzEnt1(BaseQVC):
 
 
 class AnsatzEnt2(BaseQVC):
+    _id = 10
+
     def get_weights_size(self):
         return self.n_layers, self.n_qubits_, 1
 
@@ -480,6 +496,8 @@ class AnsatzEnt2(BaseQVC):
 
 
 class AnsatzEnt3(BaseQVC):
+    _id = 11
+
     def get_weights_size(self):
         return self.n_layers, self.n_qubits_, 3
 
@@ -499,6 +517,8 @@ class AnsatzEnt3(BaseQVC):
 
 
 class AnsatzEnt4(BaseQVC):
+    _id = 9
+
     def get_weights_size(self):
         return self.n_layers, self.n_qubits_, 3
 
