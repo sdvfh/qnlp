@@ -6,7 +6,9 @@ import uuid
 from functools import reduce
 
 import pennylane as qml
+from matplotlib import pyplot as plt
 from pennylane import numpy as np
+from scipy.special import rel_entr
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.ensemble import (
     AdaBoostClassifier,
@@ -262,6 +264,123 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
             create_and_log_artifact("y_pred", y_pred.tolist(), "y_pred.json")
         create_and_log_artifact("weights", self.weights_.tolist(), "weights.json")
         create_and_log_artifact("biases", {"bias": float(self.bias_)}, "biases.json")
+
+    def probability_haar(self, lower_value, upper_value, N):
+        return self.primitive_p_haar(upper_value, N) - self.primitive_p_haar(
+            lower_value, N
+        )
+
+    @staticmethod
+    def primitive_p_haar(fidelity, N):
+        return -((1 - fidelity) ** (N - 1))
+
+    def circuit_measures(self, n_layers):
+        wires = list(range(self.n_qubits_))
+        dev = qml.device("default.qubit", wires=wires)
+        zero_ket = [0] * (2**self.n_qubits_)
+        zero_ket[0] = 1
+
+        projector = qml.Projector(zero_ket, wires)
+
+        @qml.qnode(dev)
+        def expr(params, params_conj):
+            self.ansatz(params, n_layers)
+            qml.adjoint(self.ansatz)(params_conj, n_layers)
+            return qml.expval(projector)
+
+        @qml.qnode(dev)
+        def ent(params):
+            self.ansatz(params, n_layers)
+            return qml.state()
+
+        return expr, ent
+
+    def compute_entanglement(self, states):
+        m = states.shape[0]
+        psi_t = states.reshape((m,) + (2,) * self.n_qubits_)
+
+        distances_sum = np.zeros(m)
+
+        for j in range(self.n_qubits_):
+            u = np.take(psi_t, 0, axis=1 + j).reshape(m, -1)
+            v = np.take(psi_t, 1, axis=1 + j).reshape(m, -1)
+
+            M1 = u[:, :, None] * v[:, None, :]
+            M2 = v[:, :, None] * u[:, None, :]
+
+            D_j = 0.5 * np.abs(M1 - M2) ** 2
+            D_j = D_j.sum(axis=(1, 2))
+
+            distances_sum += D_j
+
+        ent_values = (4 / self.n_qubits_) * distances_sum
+        return float(ent_values.mean())
+
+    def compute_measures(self, n_bins, n, to_plot):
+        random_state = check_random_state(self.random_state)
+        n_bins_list = [i / n_bins for i in range(n_bins + 1)]
+        prob_dist_haar = [
+            self.probability_haar(n_bins_list[i], n_bins_list[i + 1], 2**self.n_qubits_)
+            for i in range(n_bins)
+        ]
+        params_shape = (n,) + self.get_weights_size()
+        params, params_conj = random_state.uniform(
+            0, 2 * np.pi, size=params_shape
+        ), random_state.uniform(0, 2 * np.pi, size=params_shape)
+        circ_expr, circ_ent = self.circuit_measures(self.n_layers)
+        fidelities_ansatz = np.array(
+            [circ_expr(params[i], params_conj[i]) for i in range(n)]
+        )
+        if np.ndim(fidelities_ansatz) == 0:
+            fidelities_ansatz = np.full(n, fidelities_ansatz)
+
+        prob_dist_ansatz, edges = np.histogram(
+            fidelities_ansatz,
+            bins=n_bins,
+            range=(0, 1),
+            density=False,
+            weights=np.ones(n) / n,
+        )
+
+        div_kl = np.sum(rel_entr(prob_dist_ansatz, prob_dist_haar))
+
+        if to_plot:
+            widths = np.diff(edges)
+            fig, ax = plt.subplots(dpi=300)
+            ax.bar(
+                edges[:-1],
+                prob_dist_haar,
+                width=widths,
+                align="edge",
+                label="Haar",
+                edgecolor="white",
+                linewidth=0.1,
+            )
+
+            ax.bar(
+                edges[:-1],
+                prob_dist_ansatz,
+                width=widths,
+                align="edge",
+                label="A",
+                edgecolor="white",
+                alpha=0.5,
+                linewidth=0.1,
+            )
+
+            ax.set_xlabel("Fidelity")
+            ax.set_ylabel("Probability Density")
+            ax.set_xlim(0, 1)
+            ax.grid(True, linestyle="--", alpha=0.5)
+            ax.legend()
+            plt.show()
+
+        if self.n_qubits_ > 1:
+            states = np.array([circ_ent(params[i]) for i in range(n)])
+            ent = self.compute_entanglement(states)
+        else:
+            ent = 0
+        return div_kl, ent
 
 
 class AnsatzSingleRot(BaseQVC):
