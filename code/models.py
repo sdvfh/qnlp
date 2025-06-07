@@ -798,14 +798,6 @@ class BaggingLogistic(ScikitBase):
         )
 
 
-class AdaBoostMLP(ScikitBase):
-    def __init__(self, *args, **kwargs):
-        qvc = MLP(*args, **kwargs)._model
-        self._model = AdaBoostClassifier(
-            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
-        )
-
-
 class VotingSVM(Voting):
     def get_models(self, *args, **kwargs):
         return [
@@ -882,7 +874,6 @@ def get_model_classifier(args, seed):
         "hard_voting_12_14_15": HardVoting_12_14_15,
         "adaboost_logistic": AdaBoostLogistic,
         "bagging_logistic": BaggingLogistic,
-        "adaboost_mlp": AdaBoostMLP,
         "soft_voting_svm": SoftVotingSVM,
         "hard_voting_svm": HardVotingSVM,
         "soft_voting_logistic_mlp_knn": SoftVotingLogisticMLPKNN,
