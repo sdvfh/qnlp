@@ -617,7 +617,7 @@ class AdaBoostRotCNOT(ScikitBase):
     def __init__(self, *args, **kwargs):
         qvc = AnsatzRotCNOT(*args, **kwargs)
         self._model = AdaBoostClassifier(
-            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
+            estimator=qvc, n_estimators=10, random_state=kwargs.get("random_state")
         )
 
 
@@ -626,7 +626,7 @@ class BaggingRotCNOT(ScikitBase):
         qvc = AnsatzRotCNOT(*args, **kwargs)
         self._model = BaggingClassifier(
             estimator=qvc,
-            n_estimators=100,
+            n_estimators=10,
             random_state=kwargs.get("random_state"),
             bootstrap_features=True,
         )
@@ -636,7 +636,7 @@ class AdaBoostEnt4(ScikitBase):
     def __init__(self, *args, **kwargs):
         qvc = AnsatzEnt4(*args, **kwargs)
         self._model = AdaBoostClassifier(
-            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
+            estimator=qvc, n_estimators=10, random_state=kwargs.get("random_state")
         )
 
 
@@ -645,7 +645,7 @@ class BaggingEnt4(ScikitBase):
         qvc = AnsatzEnt4(*args, **kwargs)
         self._model = BaggingClassifier(
             estimator=qvc,
-            n_estimators=100,
+            n_estimators=10,
             random_state=kwargs.get("random_state"),
             bootstrap_features=True,
         )
@@ -655,7 +655,7 @@ class AdaBoostMaouaki15(ScikitBase):
     def __init__(self, *args, **kwargs):
         qvc = AnsatzMaouaki15(*args, **kwargs)
         self._model = AdaBoostClassifier(
-            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
+            estimator=qvc, n_estimators=10, random_state=kwargs.get("random_state")
         )
 
 
@@ -664,7 +664,7 @@ class BaggingMaouaki15(ScikitBase):
         qvc = AnsatzMaouaki15(*args, **kwargs)
         self._model = BaggingClassifier(
             estimator=qvc,
-            n_estimators=100,
+            n_estimators=10,
             random_state=kwargs.get("random_state"),
             bootstrap_features=True,
         )
@@ -783,7 +783,7 @@ class AdaBoostLogistic(ScikitBase):
     def __init__(self, *args, **kwargs):
         qvc = MyLogisticRegression(*args, **kwargs)._model
         self._model = AdaBoostClassifier(
-            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
+            estimator=qvc, n_estimators=10, random_state=kwargs.get("random_state")
         )
 
 
@@ -792,7 +792,7 @@ class BaggingLogistic(ScikitBase):
         qvc = MyLogisticRegression(*args, **kwargs)._model
         self._model = BaggingClassifier(
             estimator=qvc,
-            n_estimators=100,
+            n_estimators=10,
             random_state=kwargs.get("random_state"),
             bootstrap_features=True,
         )
