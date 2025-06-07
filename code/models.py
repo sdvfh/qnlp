@@ -383,6 +383,17 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         return div_kl, ent
 
 
+class AnsatzMottoten(BaseQVC):
+    def get_weights_size(self):
+        return 1, 1, int(2**self.n_qubits_)
+
+    def ansatz(self, weights, n_layers):
+        wires = range(self.n_qubits_)
+        qml.AmplitudeEmbedding(
+            features=weights[0, 0, :], wires=wires, normalize=True, pad_with=0.0
+        )
+
+
 class AnsatzSingleRot(BaseQVC):
     _gate = None
 
