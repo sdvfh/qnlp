@@ -274,7 +274,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
     def primitive_p_haar(fidelity, N):
         return -((1 - fidelity) ** (N - 1))
 
-    def circuit_measures(self, n_layers):
+    def circuit_measures(self, n_layers, with_state_preparation=False):
         wires = list(range(self.n_qubits_))
         dev = qml.device("default.qubit", wires=wires)
         zero_ket = [0] * (2**self.n_qubits_)
@@ -282,16 +282,45 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
 
         projector = qml.Projector(zero_ket, wires)
 
-        @qml.qnode(dev)
-        def expr(params, params_conj):
-            self.ansatz(params, n_layers)
-            qml.adjoint(self.ansatz)(params_conj, n_layers)
-            return qml.expval(projector)
+        if with_state_preparation:
+            stateprep = AnsatzMottoten(
+                n_layers=self.n_layers,
+                max_iter=self.max_iter,
+                batch_size=self.batch_size,
+                random_state=self.random_state,
+                n_qubits_=self.n_qubits_,
+                testing=self.testing,
+            )
 
-        @qml.qnode(dev)
-        def ent(params):
-            self.ansatz(params, n_layers)
-            return qml.state()
+            @qml.qnode(dev)
+            def expr(params, params_conj):
+                params, params_state = params
+                params_conj, params_conj_state = params_conj
+                stateprep.ansatz(params_state, n_layers)
+                self.ansatz(params, n_layers)
+                qml.adjoint(self.ansatz)(params_conj, n_layers)
+                qml.adjoint(stateprep.ansatz)(params_conj_state, n_layers)
+                return qml.expval(projector)
+
+            @qml.qnode(dev)
+            def ent(params):
+                params, params_state = params
+                stateprep.ansatz(params_state, n_layers)
+                self.ansatz(params, n_layers)
+                return qml.state()
+
+        else:
+
+            @qml.qnode(dev)
+            def expr(params, params_conj):
+                self.ansatz(params, n_layers)
+                qml.adjoint(self.ansatz)(params_conj, n_layers)
+                return qml.expval(projector)
+
+            @qml.qnode(dev)
+            def ent(params):
+                self.ansatz(params, n_layers)
+                return qml.state()
 
         return expr, ent
 
@@ -316,7 +345,7 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
         ent_values = (4 / self.n_qubits_) * distances_sum
         return float(ent_values.mean())
 
-    def compute_measures(self, n_bins, n, to_plot):
+    def compute_measures(self, n_bins, n, to_plot, with_state_prep=False):
         random_state = check_random_state(self.random_state)
         n_bins_list = [i / n_bins for i in range(n_bins + 1)]
         prob_dist_haar = [
@@ -324,10 +353,29 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
             for i in range(n_bins)
         ]
         params_shape = (n,) + self.get_weights_size()
+
         params, params_conj = random_state.uniform(
             0, 2 * np.pi, size=params_shape
         ), random_state.uniform(0, 2 * np.pi, size=params_shape)
-        circ_expr, circ_ent = self.circuit_measures(self.n_layers)
+
+        if with_state_prep:
+            stateprep = AnsatzMottoten(
+                n_layers=self.n_layers,
+                max_iter=self.max_iter,
+                batch_size=self.batch_size,
+                random_state=self.random_state,
+                n_qubits_=self.n_qubits_,
+                testing=self.testing,
+            )
+            params_state_shape = (n,) + stateprep.get_weights_size()
+
+            params_state, params_state_conj = random_state.uniform(
+                0, 2 * np.pi, size=params_state_shape
+            ), random_state.uniform(0, 2 * np.pi, size=params_state_shape)
+            params = list(zip(params, params_state, strict=True))
+            params_conj = list(zip(params_conj, params_state_conj, strict=True))
+
+        circ_expr, circ_ent = self.circuit_measures(self.n_layers, with_state_prep)
         fidelities_ansatz = np.array(
             [circ_expr(params[i], params_conj[i]) for i in range(n)]
         )
