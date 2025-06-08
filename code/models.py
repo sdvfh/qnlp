@@ -806,7 +806,6 @@ class BaggingRotCNOT(ScikitBase):
             estimator=qvc,
             n_estimators=10,
             random_state=kwargs.get("random_state"),
-            bootstrap_features=True,
         )
 
 
@@ -825,7 +824,6 @@ class BaggingEnt4(ScikitBase):
             estimator=qvc,
             n_estimators=10,
             random_state=kwargs.get("random_state"),
-            bootstrap_features=True,
         )
 
 
@@ -844,7 +842,6 @@ class BaggingMaouaki15(ScikitBase):
             estimator=qvc,
             n_estimators=10,
             random_state=kwargs.get("random_state"),
-            bootstrap_features=True,
         )
 
 
@@ -972,7 +969,6 @@ class BaggingLogistic(ScikitBase):
             estimator=qvc,
             n_estimators=10,
             random_state=kwargs.get("random_state"),
-            bootstrap_features=True,
         )
 
 
