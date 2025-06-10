@@ -714,6 +714,7 @@ class ScikitBase:
     _model_template = None
     _parameters_template = {}
     _parameters = {}
+    _id = None
 
     def __init__(self, *args, **kwargs):
         self._parameters = {
@@ -752,28 +753,34 @@ class SVMBase(ScikitBase):
 
 
 class SVMRBF(SVMBase):
+    _id = 38
     _parameters_template = {"kernel": "rbf", "probability": True, "verbose": True}
 
 
 class SVMLinear(SVMBase):
+    _id = 36
     _parameters_template = {"kernel": "linear", "probability": True, "verbose": True}
 
 
 class SVMPoly(SVMBase):
+    _id = 37
     _parameters_template = {"kernel": "poly", "probability": True, "verbose": True}
 
 
 class MyLogisticRegression(ScikitBase):
+    _id = 32
     _model_template = LogisticRegression
     _parameters_template = {"max_iter": 1_000_000, "verbose": 5}
 
 
 class RandomForest(ScikitBase):
+    _id = 35
     _model_template = RandomForestClassifier
     _parameters_template = {"verbose": 5}
 
 
 class KNN(ScikitBase):
+    _id = 34
     _model_template = KNeighborsClassifier
 
     def __init__(self, *args, **kwargs):
@@ -784,6 +791,7 @@ class KNN(ScikitBase):
 
 
 class MLP(ScikitBase):
+    _id = 33
     _model_template = MLPClassifier
     _parameters_template = {"verbose": True, "hidden_layer_sizes": ()}
 
@@ -792,6 +800,8 @@ class MLP(ScikitBase):
 
 
 class AdaBoostRotCNOT(ScikitBase):
+    _id = 16
+
     def __init__(self, *args, **kwargs):
         qvc = AnsatzRotCNOT(*args, **kwargs)
         self._model = AdaBoostClassifier(
@@ -800,6 +810,8 @@ class AdaBoostRotCNOT(ScikitBase):
 
 
 class BaggingRotCNOT(ScikitBase):
+    _id = 17
+
     def __init__(self, *args, **kwargs):
         qvc = AnsatzRotCNOT(*args, **kwargs)
         self._model = BaggingClassifier(
@@ -810,6 +822,8 @@ class BaggingRotCNOT(ScikitBase):
 
 
 class AdaBoostEnt4(ScikitBase):
+    _id = 18
+
     def __init__(self, *args, **kwargs):
         qvc = AnsatzEnt4(*args, **kwargs)
         self._model = AdaBoostClassifier(
@@ -818,6 +832,8 @@ class AdaBoostEnt4(ScikitBase):
 
 
 class BaggingEnt4(ScikitBase):
+    _id = 19
+
     def __init__(self, *args, **kwargs):
         qvc = AnsatzEnt4(*args, **kwargs)
         self._model = BaggingClassifier(
@@ -828,6 +844,8 @@ class BaggingEnt4(ScikitBase):
 
 
 class AdaBoostMaouaki15(ScikitBase):
+    _id = 20
+
     def __init__(self, *args, **kwargs):
         qvc = AnsatzMaouaki15(*args, **kwargs)
         self._model = AdaBoostClassifier(
@@ -836,6 +854,8 @@ class AdaBoostMaouaki15(ScikitBase):
 
 
 class BaggingMaouaki15(ScikitBase):
+    _id = 21
+
     def __init__(self, *args, **kwargs):
         qvc = AnsatzMaouaki15(*args, **kwargs)
         self._model = BaggingClassifier(
@@ -874,11 +894,11 @@ class Voting_1_2_3(Voting):
 
 
 class SoftVoting_1_2_3(Voting_1_2_3, SoftVoting):
-    pass
+    _id = 22
 
 
 class HardVoting_1_2_3(Voting_1_2_3, HardVoting):
-    pass
+    _id = 23
 
 
 class Voting_1_2_3_5(Voting):
@@ -892,11 +912,11 @@ class Voting_1_2_3_5(Voting):
 
 
 class SoftVoting_1_2_3_5(Voting_1_2_3_5, SoftVoting):
-    pass
+    _id = 24
 
 
 class HardVoting_1_2_3_5(Voting_1_2_3_5, HardVoting):
-    pass
+    _id = 25
 
 
 class Voting_1_2_3_5_6(Voting):
@@ -911,11 +931,11 @@ class Voting_1_2_3_5_6(Voting):
 
 
 class SoftVoting_1_2_3_5_6(Voting_1_2_3_5_6, SoftVoting):
-    pass
+    _id = 26
 
 
 class HardVoting_1_2_3_5_6(Voting_1_2_3_5_6, HardVoting):
-    pass
+    _id = 27
 
 
 class Voting_7_8_9_10_11(Voting):
@@ -930,11 +950,11 @@ class Voting_7_8_9_10_11(Voting):
 
 
 class SoftVoting_7_8_9_10_11(Voting_7_8_9_10_11, SoftVoting):
-    pass
+    _id = 28
 
 
 class HardVoting_7_8_9_10_11(Voting_7_8_9_10_11, HardVoting):
-    pass
+    _id = 29
 
 
 class Voting_12_14_15(Voting):
@@ -947,14 +967,16 @@ class Voting_12_14_15(Voting):
 
 
 class SoftVoting_12_14_15(Voting_12_14_15, SoftVoting):
-    pass
+    _id = 30
 
 
 class HardVoting_12_14_15(Voting_12_14_15, HardVoting):
-    pass
+    _id = 31
 
 
 class AdaBoostLogistic(ScikitBase):
+    _id = 39
+
     def __init__(self, *args, **kwargs):
         qvc = MyLogisticRegression(*args, **kwargs)._model
         self._model = AdaBoostClassifier(
@@ -963,6 +985,8 @@ class AdaBoostLogistic(ScikitBase):
 
 
 class BaggingLogistic(ScikitBase):
+    _id = 40
+
     def __init__(self, *args, **kwargs):
         qvc = MyLogisticRegression(*args, **kwargs)._model
         self._model = BaggingClassifier(
@@ -982,11 +1006,11 @@ class VotingSVM(Voting):
 
 
 class SoftVotingSVM(VotingSVM, SoftVoting):
-    pass
+    _id = 41
 
 
 class HardVotingSVM(VotingSVM, HardVoting):
-    pass
+    _id = 42
 
 
 class VotingLogisticMLPKNN(Voting):
@@ -999,11 +1023,11 @@ class VotingLogisticMLPKNN(Voting):
 
 
 class SoftVotingLogisticMLPKNN(VotingLogisticMLPKNN, SoftVoting):
-    pass
+    _id = 43
 
 
 class HardVotingLogisticMLPKNN(VotingLogisticMLPKNN, HardVoting):
-    pass
+    _id = 44
 
 
 def get_model_classifier(args, seed):
