@@ -45,15 +45,6 @@ df = df[df["dataset"] == "chatgpt_easy"]
 df = df[df["n_features"] == 16]
 df = df[df["model_classifier"].isin(quantum_models + classical_models)]
 
-for n_layer in [1, 10]:
-    for model in df["model_classifier"].unique():
-        comparison = df[(df["n_layers"] == n_layer) & (df["model_classifier"] == model)]
-        comparison = comparison.pivot(
-            index="seed", columns="model_transformer", values="f1"
-        )
-        comparison = pairwise_wilcoxon_holm(comparison, alpha=0.05)
-
-
 classifier_order = (
     df.groupby("model_classifier")["f1"]
     .mean()
