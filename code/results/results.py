@@ -1,6 +1,12 @@
+import itertools
+
 import numpy as np
+import pandas as pd
+from aeon.visualisation import plot_critical_difference
 from matplotlib import pyplot as plt
 from matplotlib.patches import Patch
+from scipy.stats import wilcoxon
+from statsmodels.stats.multitest import multipletests
 from utils import (
     classical_ensemble_models,
     classical_models,
@@ -9,10 +15,44 @@ from utils import (
     read_summary,
 )
 
+
+def pairwise_wilcoxon_holm(df, alpha=0.05):
+    models = df.columns.tolist()
+    results = []
+    for i, j in itertools.combinations(models, 2):
+        x = df[i].values
+        y = df[j].values
+        if len(x) == len(y) and (x != y).any():
+            stat, p_unc = wilcoxon(x, y)
+        else:
+            stat, p_unc = float("nan"), 1.0
+        results.append((i, j, stat, p_unc))
+
+    pvals = [r[3] for r in results]
+
+    reject, pvals_holm, _, _ = multipletests(pvals, alpha=alpha, method="holm")
+
+    out = pd.DataFrame(
+        results, columns=["model_i", "model_j", "statistic", "p_uncorrected"]
+    )
+    out["p_holm"] = pvals_holm
+    out["reject"] = reject
+    return out
+
+
 df = read_summary()
 df = df[df["dataset"] == "chatgpt_easy"]
 df = df[df["n_features"] == 16]
 df = df[df["model_classifier"].isin(quantum_models + classical_models)]
+
+for n_layer in [1, 10]:
+    for model in df["model_classifier"].unique():
+        comparison = df[(df["n_layers"] == n_layer) & (df["model_classifier"] == model)]
+        comparison = comparison.pivot(
+            index="seed", columns="model_transformer", values="f1"
+        )
+        comparison = pairwise_wilcoxon_holm(comparison, alpha=0.05)
+
 
 classifier_order = (
     df.groupby("model_classifier")["f1"]
