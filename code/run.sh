@@ -49,7 +49,7 @@ done
 for dataset in sst; do
   for classifier in "${classical_classifiers[@]}"; do
     for layers in 1; do
-      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 16  --n_qubits 4  -model_classifier "$classifier" --epochs 40 --batch_size 20 --n_repetitions 30 --n_layers "$layers" ;
+      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 16  --n_qubits 4  -model_classifier "$classifier" --epochs 40 --batch_size 512 --n_repetitions 30 --n_layers "$layers" ;
     done
   done
 done
@@ -58,7 +58,7 @@ done
 for dataset in sst; do
   for classifier in "${quantum_classifiers[@]}"; do
     for layers in 1 10; do
-      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 16  --n_qubits 4  -model_classifier "$classifier" --epochs 40 --batch_size 20 --n_repetitions 30 --n_layers "$layers" ;
+      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 16  --n_qubits 4  -model_classifier "$classifier" --epochs 40 --batch_size 512 --n_repetitions 30 --n_layers "$layers" ;
     done
   done
 done
@@ -67,7 +67,7 @@ done
 for dataset in sst; do
   for classifier in "${classical_ensembles[@]}"; do
     for layers in 1; do
-      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 16  --n_qubits 4  -model_classifier "$classifier" --epochs 40 --batch_size 20 --n_repetitions 30 --n_layers "$layers" ;
+      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 16  --n_qubits 4  -model_classifier "$classifier" --epochs 40 --batch_size 512 --n_repetitions 30 --n_layers "$layers" ;
     done
   done
 done
@@ -76,7 +76,7 @@ done
 for dataset in sst; do
   for classifier in "${quantum_ensembles[@]}"; do
     for layers in 1 10; do
-      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 16  --n_qubits 4  -model_classifier "$classifier" --epochs 40 --batch_size 20 --n_repetitions 30 --n_layers "$layers" ;
+      python experiments.py -dataset "$dataset" -model_transformer "tomaarsen/mpnet-base-nli-matryoshka" -n_features 16  --n_qubits 4  -model_classifier "$classifier" --epochs 40 --batch_size 512 --n_repetitions 30 --n_layers "$layers" ;
     done
   done
 done
