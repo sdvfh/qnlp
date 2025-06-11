@@ -37,6 +37,7 @@ df = df[df["dataset"] == "chatgpt_easy"]
 df = df[df["n_features"] == 16]
 df = df[df["model_classifier"].isin(quantum_models + classical_models)]
 
+
 # --- Configura plotagem ---
 classifier_order = (
     df.groupby("model_classifier")["f1"]
@@ -50,13 +51,29 @@ combos = [(tr, ly) for tr in transformers for ly in layers]
 
 n_cl = len(classifier_order)
 n_comb = len(combos)
-width = 0.6 / n_comb
-positions = [np.arange(n_cl) - 0.3 + width / 2 + i * width for i in range(n_comb)]
 
+# largura de cada boxplot
+width = 0.6 / n_comb
+
+# gap extra entre blocos de transformers distintos (em unidades de F1 score)
+block_gap = 0.1  # ajuste entre 0.02 e 0.1 conforme necessidade
+
+# calcula posições incluindo gap entre transformers
+positions = []
+for ti, _ in enumerate(transformers):
+    # deslocamento acumulado por bloco completo de layers + gap
+    base_offset = ti * (len(layers) * width + block_gap) - block_gap
+    for li, _ in enumerate(layers):
+        pos = np.arange(n_cl) - 0.3 + width / 2 + li * width + base_offset
+        positions.append(pos)
+
+# mapeia cada combo (transformer, n_layers) à sua posição
+pos_map = {combos[i]: positions[i] for i in range(n_comb)}
+
+# cores e hatches
 colors = plt.cm.tab10(np.linspace(0, 1, len(transformers)))
 color_map = {tr: colors[i] for i, tr in enumerate(transformers)}
 hatch_map = {1: "", 10: "//"}
-pos_map = {combos[i]: positions[i] for i in range(n_comb)}
 
 # --- Desenha boxplots ---
 fig, ax = plt.subplots(figsize=(8, 20), dpi=300)
@@ -97,19 +114,15 @@ for ci, clf in enumerate(classifier_order):
     sub = df[df["model_classifier"] == clf].pivot(
         index="seed", columns=["model_transformer", "n_layers"], values="f1"
     )
-    # transforma colunas em tuplas (tr, ly)
     sub.columns = pd.MultiIndex.from_tuples(sub.columns)
     res = pairwise_wilcoxon_holm(sub, alpha)
-    for _, row in res[res["reject"] is False].iterrows():
+    for _, row in res[res["reject"] == False].iterrows():
         col_i = row["model_i"]
         col_j = row["model_j"]
-        # garantir mesmo transformer e layers distintos
         if col_i[0] == col_j[0] and col_i[1] != col_j[1]:
-            # posições verticais
             y1 = pos_map[col_i][ci]
             y2 = pos_map[col_j][ci]
-            y_ast = np.mean([y1, y2])  # + width*0.5
-            # x no meio das medianas
+            y_ast = np.mean([y1, y2])
             med1 = sub[col_i].median()
             med2 = sub[col_j].median()
             x_ast = (med1 + med2) / 2
@@ -122,7 +135,7 @@ for ci, clf in enumerate(classifier_order):
                 color="#ed1fed",
                 fontsize=12,
                 fontweight="bold",
-                zorder=5,  # formato quadrado
+                zorder=5,
             )
 
 # --- Finaliza e legenda ---
@@ -132,7 +145,7 @@ ax.set_yticklabels(classifier_order)
 ax.set_xlabel("F1 Score")
 ax.set_title(
     "Boxplot F1 por Classifier, Transformer e N_Layers\n"
-    "'*' indica não-diferença (Wilcoxon+Holm)"
+    "'x' indica sem diferença estatística (Wilcoxon+Holm)"
 )
 
 t_handles = [Patch(facecolor=color_map[tr], label=tr) for tr in transformers]
@@ -151,7 +164,7 @@ s_handle = Line2D(
     marker="x",
     color="#ed1fed",
     linestyle="",
-    markerfacecolor="none",  # sem preenchimento interno
+    markerfacecolor="none",
     markersize=12,
     label="semelhantes",
 )
