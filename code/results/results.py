@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.patches import Patch, Rectangle
+from matplotlib.patches import Patch
 from scipy.stats import wilcoxon
 from statsmodels.stats.multitest import multipletests
 from utils import classical_models, quantum_models, read_summary
@@ -42,7 +42,6 @@ special = [3, 33]
 df_top = df[df["model_classifier"].isin(special)]
 df_bot = df[~df["model_classifier"].isin(special)]
 
-# ordena classifiers por média de F1
 top_order = df_top.groupby("model_classifier")["f1"].mean().sort_values().index.tolist()
 bot_order = df_bot.groupby("model_classifier")["f1"].mean().sort_values().index.tolist()
 
@@ -54,29 +53,22 @@ n_comb = len(combos)
 
 # largura e gap entre blocos de transformers
 width = 0.6 / n_comb
-block_gap = 0.1  # ajuste fino: quanto maior, maior o espaço
+block_gap = 0.1
 
 
 def compute_positions(n_cl):
-    """
-    Retorna:
-      positions: lista de arrays de posições (um array por combo em `combos`)
-      pos_map: dict que mapeia cada (transformer,n_layers) → array de posições
-    """
     positions = []
-    for ti, _ in enumerate(transformers):
+    for ti in range(len(transformers)):
         base = ti * (len(layers) * width + block_gap) - block_gap
-        for li, _ in enumerate(layers):
+        for li in range(len(layers)):
             p = np.arange(n_cl) - 0.3 + width / 2 + li * width + base
             positions.append(p)
     return positions, {combos[i]: positions[i] for i in range(n_comb)}
 
 
-# calcula posições para cada painel
 positions_top, pos_map_top = compute_positions(len(top_order))
 positions_bot, pos_map_bot = compute_positions(len(bot_order))
 
-# cores e hatches
 colors = plt.cm.tab10(np.linspace(0, 1, len(transformers)))
 color_map = {tr: colors[i] for i, tr in enumerate(transformers)}
 hatch_map = {layers[0]: "", layers[1]: "//"}
@@ -86,13 +78,14 @@ hatch_map = {layers[0]: "", layers[1]: "//"}
 def plot_panel(ax, df_panel, classifier_order, positions, pos_map):
     ax.set_axisbelow(True)
     ax.grid(True, which="major", color="#CCCCCC", linestyle="--", linewidth=0.8)
+
     # linhas horizontais de limite de cada classifier
     for y in np.arange(len(classifier_order) + 1) - 0.5:
         ax.axhline(y=y, color="black", linewidth=1, zorder=0)
 
-    # boxplots
+    # desenha boxplots
     for i, (tr, ly) in enumerate(combos):
-        data_plot = [
+        data = [
             df_panel[
                 (df_panel["model_classifier"] == clf)
                 & (df_panel["model_transformer"] == tr)
@@ -101,7 +94,7 @@ def plot_panel(ax, df_panel, classifier_order, positions, pos_map):
             for clf in classifier_order
         ]
         bp = ax.boxplot(
-            data_plot,
+            data,
             positions=positions[i],
             widths=width,
             vert=False,
@@ -131,9 +124,9 @@ def plot_panel(ax, df_panel, classifier_order, positions, pos_map):
             if t0 == t1 and l0 != l1:
                 y0 = pos_map[(t0, l0)][ci]
                 y1 = pos_map[(t1, l1)][ci]
-                x0 = (sub[(t0, l0)].median() + sub[(t1, l1)].median()) / 2
+                x_mid = (sub[(t0, l0)].median() + sub[(t1, l1)].median()) / 2
                 ax.text(
-                    x0,
+                    x_mid,
                     (y0 + y1) / 2,
                     "x",
                     ha="center",
@@ -144,77 +137,35 @@ def plot_panel(ax, df_panel, classifier_order, positions, pos_map):
                     zorder=5,
                 )
 
-    # ② “o”: não-diferença entre transformers para cada layer
+    # ② seta bidirecional verde: não-diferença entre transformers para cada layer
     for ci, clf in enumerate(classifier_order):
         sub = df_panel[df_panel["model_classifier"] == clf].pivot(
             index="seed", columns=["model_transformer", "n_layers"], values="f1"
         )
         sub.columns = pd.MultiIndex.from_tuples(sub.columns)
-        res = pairwise_wilcoxon_holm(sub, alpha)
-        for _, row in res[res["reject"] == False].iterrows():
-            (t0, l0), (t1, l1) = row["model_i"], row["model_j"]
-            if l0 == l1 and t0 != t1:
-                y0 = pos_map[(t0, l0)][ci]
-                y1 = pos_map[(t1, l1)][ci]
-                x0 = (sub[(t0, l0)].median() + sub[(t1, l1)].median()) / 2
-                ax.text(
-                    x0,
-                    (y0 + y1) / 2,
-                    "o",
-                    ha="center",
-                    va="center",
-                    color="#1f77b4",
-                    fontsize=12,
-                    fontweight="bold",
+
+        for ly in layers:
+            if ly not in sub.columns.get_level_values(1):
+                continue
+
+            sub_ly = sub.xs(ly, level=1, axis=1)
+            res = pairwise_wilcoxon_holm(sub_ly, alpha)
+            for _, row in res[res["reject"] == False].iterrows():
+                t0, t1 = row["model_i"], row["model_j"]
+                # medianas
+                m0 = sub[(t0, ly)].median()
+                m1 = sub[(t1, ly)].median()
+                # posições verticais
+                y0 = pos_map[(t0, ly)][ci]
+                y1 = pos_map[(t1, ly)][ci]
+                # desenha seta bidirecional verde entre as medianas
+                ax.annotate(
+                    "",
+                    xy=(m1, y1),
+                    xytext=(m0, y0),
+                    arrowprops=dict(arrowstyle="<->", color="green", linewidth=1.5),
                     zorder=5,
                 )
-
-    # ③ Retângulo: só se ambos os layers estiverem disponíveis no pivot
-    for ci, clf in enumerate(classifier_order):
-        sub = df_panel[df_panel["model_classifier"] == clf].pivot(
-            index="seed", columns=["model_transformer", "n_layers"], values="f1"
-        )
-        sub.columns = pd.MultiIndex.from_tuples(sub.columns)
-        avail_layers = set(sub.columns.get_level_values(1))
-        if not all(ly in avail_layers for ly in layers):
-            continue
-
-        for i, t0 in enumerate(transformers):
-            for t1 in transformers[i + 1 :]:
-                # testa layer a layer
-                pvals = []
-                for ly in layers:
-                    x = sub[(t0, ly)].values
-                    y = sub[(t1, ly)].values
-                    if len(x) == len(y) and (x != y).any():
-                        _, p = wilcoxon(x, y)
-                    else:
-                        p = 1.0
-                    pvals.append(p)
-                reject, _, _, _ = multipletests(pvals, alpha=alpha, method="holm")
-                if not reject.any():
-                    # extremos em x
-                    all_vals = np.hstack(
-                        [sub[(t0, ly)] for ly in layers]
-                        + [sub[(t1, ly)] for ly in layers]
-                    )
-                    x_min, x_max = all_vals.min(), all_vals.max()
-                    x_margin = 0.02 * (ax.get_xlim()[1] - ax.get_xlim()[0])
-                    x0, x1 = x_min - x_margin, x_max + x_margin
-                    # extremos em y
-                    ys = [pos_map[(t, ly)][ci] for t in (t0, t1) for ly in layers]
-                    y0, y1 = min(ys), max(ys)
-                    y_margin = width
-                    rect = Rectangle(
-                        (x0, y0 - y_margin),
-                        x1 - x0,
-                        (y1 - y0) + 2 * y_margin,
-                        fill=False,
-                        edgecolor="green",
-                        linewidth=1.5,
-                        zorder=4,
-                    )
-                    ax.add_patch(rect)
 
     ax.set_ylim(len(classifier_order) - 0.5, -0.5)
     ax.set_yticks(np.arange(len(classifier_order)))
@@ -227,28 +178,21 @@ fig, (ax_top, ax_bot) = plt.subplots(
     2,
     1,
     figsize=(8, 24),
-    dpi=100,
+    dpi=600,  # aumento de dpi
     sharex=False,
     gridspec_kw={"height_ratios": [len(top_order), len(bot_order)]},
 )
 
-# plota cada painel
 plot_panel(ax_top, df_top, top_order, positions_top, pos_map_top)
 plot_panel(ax_bot, df_bot, bot_order, positions_bot, pos_map_bot)
 
-# títulos e legenda (apenas uma vez, no bottom)
 ax_top.set_title("Modelos 3 e 33")
 ax_bot.set_title("Demais Modelos")
 
 # legenda unificada
 t_handles = [Patch(facecolor=color_map[tr], label=tr) for tr in transformers]
 l_handles = [
-    Patch(
-        facecolor="white",
-        hatch=hatch_map[ly],
-        edgecolor="black",
-        label=f"n_layers={ly}",
-    )
+    Patch(facecolor="white", hatch=hatch_map[ly], edgecolor="black", label=f"L = {ly}")
     for ly in layers
 ]
 x_handle = Line2D(
@@ -259,27 +203,20 @@ x_handle = Line2D(
     linestyle="",
     markerfacecolor="none",
     markersize=12,
-    label="sem diferença entre layers",
+    label="Sem diferença entre layers",
 )
-o_handle = Line2D(
-    [],
-    [],
-    marker="o",
-    color="#1f77b4",
-    linestyle="",
-    markerfacecolor="#1f77b4",
-    markersize=12,
-    label="sem diferença entre transformers",
-)
-rect_handle = Line2D(
+arrow_handle = Line2D(
     [],
     [],
     color="green",
-    linewidth=1.5,
-    label="ambas camadas não diferem entre transformers",
+    marker=r"$\leftrightarrow$",
+    linestyle="None",
+    markersize=10,
+    label="Sem diferença entre transformers",
 )
+
 ax_bot.legend(
-    handles=t_handles + l_handles + [x_handle, o_handle, rect_handle],
+    handles=t_handles + l_handles + [x_handle, arrow_handle],
     title="Legenda",
     loc="best",
     fontsize="small",
