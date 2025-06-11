@@ -1,7 +1,7 @@
 import pandas as pd
 from matplotlib import pyplot as plt
 
-df = pd.read_csv("/home/sergio/repositories/masters/qnlp/results/kl_values.csv")
+df = pd.read_csv("/results/kl_values.csv")
 df = df[df["circuit_name"] != "single_rot_z"]
 df_1 = df[df["n_layers"] == 1]
 df_10 = df[df["n_layers"] == 10]

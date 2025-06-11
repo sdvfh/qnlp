@@ -297,38 +297,25 @@ def primitive_p_haar(fidelity, N):
     return -((1 - fidelity) ** (N - 1))
 
 
-def compute_entanglement_vectorized(states: np.ndarray, n_qubits: int) -> float:
-    """
-    Vetorizado: para cada qubit j, extrai u,v em batch e
-    calcula D_j usando produtos externos (np.outer em batch).
-    states: array (M, 2**n_qubits)
-    """
+def compute_entanglement(states, n_qubits):
     M = states.shape[0]
-    # (M, 2, 2, ..., 2)
     psi_t = states.reshape((M,) + (2,) * n_qubits)
 
-    distances_sum = np.zeros(M)  # acumula D_j para cada estado
+    distances_sum = np.zeros(M)
 
     for j in range(n_qubits):
-        # extrai u e v, shape (M, D), D = 2**(n_qubits-1)
         u = np.take(psi_t, 0, axis=1 + j).reshape(M, -1)
         v = np.take(psi_t, 1, axis=1 + j).reshape(M, -1)
 
-        # agora, em batch, calcula o produto externo antissimétrico
-        # M1[m,i,k] = u[m,i] * v[m,k]
         M1 = u[:, :, None] * v[:, None, :]
-        # M2[m,i,k] = v[m,i] * u[m,k]
         M2 = v[:, :, None] * u[:, None, :]
 
-        # |M1 - M2|^2 elementwise, soma sobre i,k e aplica 1/2
-        # isso dá D_j para cada um dos M estados
         D_j = 0.5 * np.abs(M1 - M2) ** 2
-        D_j = D_j.sum(axis=(1, 2))  # shape (M,)
+        D_j = D_j.sum(axis=(1, 2))
 
         distances_sum += D_j
 
-    # Meyer–Wallach por batch e média final
-    ent_values = (4 / n_qubits) * distances_sum  # shape (M,)
+    ent_values = (4 / n_qubits) * distances_sum
     return float(ent_values.mean())
 
 
@@ -399,7 +386,7 @@ def compute_expressability_entanglement(
 
     if n_qubits > 1:
         states = circ_ent(params)
-        ent = compute_entanglement_vectorized(states, n_qubits)
+        ent = compute_entanglement(states, n_qubits)
     else:
         ent = 0
     print(

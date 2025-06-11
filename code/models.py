@@ -6,7 +6,9 @@ import uuid
 from functools import reduce
 
 import pennylane as qml
+from matplotlib import pyplot as plt
 from pennylane import numpy as np
+from scipy.special import rel_entr
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.ensemble import (
     AdaBoostClassifier,
@@ -262,6 +264,182 @@ class BaseQVC(ClassifierMixin, BaseEstimator):
             create_and_log_artifact("y_pred", y_pred.tolist(), "y_pred.json")
         create_and_log_artifact("weights", self.weights_.tolist(), "weights.json")
         create_and_log_artifact("biases", {"bias": float(self.bias_)}, "biases.json")
+
+    def probability_haar(self, lower_value, upper_value, N):
+        return self.primitive_p_haar(upper_value, N) - self.primitive_p_haar(
+            lower_value, N
+        )
+
+    @staticmethod
+    def primitive_p_haar(fidelity, N):
+        return -((1 - fidelity) ** (N - 1))
+
+    def circuit_measures(self, n_layers, with_state_preparation=False):
+        wires = list(range(self.n_qubits_))
+        dev = qml.device("default.qubit", wires=wires)
+        zero_ket = [0] * (2**self.n_qubits_)
+        zero_ket[0] = 1
+
+        projector = qml.Projector(zero_ket, wires)
+
+        if with_state_preparation:
+            stateprep = AnsatzMottoten(
+                n_layers=self.n_layers,
+                max_iter=self.max_iter,
+                batch_size=self.batch_size,
+                random_state=self.random_state,
+                n_qubits_=self.n_qubits_,
+                testing=self.testing,
+            )
+
+            @qml.qnode(dev)
+            def expr(params, params_conj):
+                params, params_state = params
+                params_conj, params_conj_state = params_conj
+                stateprep.ansatz(params_state, n_layers)
+                self.ansatz(params, n_layers)
+                qml.adjoint(self.ansatz)(params_conj, n_layers)
+                qml.adjoint(stateprep.ansatz)(params_conj_state, n_layers)
+                return qml.expval(projector)
+
+            @qml.qnode(dev)
+            def ent(params):
+                params, params_state = params
+                stateprep.ansatz(params_state, n_layers)
+                self.ansatz(params, n_layers)
+                return qml.state()
+
+        else:
+
+            @qml.qnode(dev)
+            def expr(params, params_conj):
+                self.ansatz(params, n_layers)
+                qml.adjoint(self.ansatz)(params_conj, n_layers)
+                return qml.expval(projector)
+
+            @qml.qnode(dev)
+            def ent(params):
+                self.ansatz(params, n_layers)
+                return qml.state()
+
+        return expr, ent
+
+    def compute_entanglement(self, states):
+        m = states.shape[0]
+        psi_t = states.reshape((m,) + (2,) * self.n_qubits_)
+
+        distances_sum = np.zeros(m)
+
+        for j in range(self.n_qubits_):
+            u = np.take(psi_t, 0, axis=1 + j).reshape(m, -1)
+            v = np.take(psi_t, 1, axis=1 + j).reshape(m, -1)
+
+            M1 = u[:, :, None] * v[:, None, :]
+            M2 = v[:, :, None] * u[:, None, :]
+
+            D_j = 0.5 * np.abs(M1 - M2) ** 2
+            D_j = D_j.sum(axis=(1, 2))
+
+            distances_sum += D_j
+
+        ent_values = (4 / self.n_qubits_) * distances_sum
+        return float(ent_values.mean())
+
+    def compute_measures(self, n_bins, n, to_plot, with_state_prep=False):
+        random_state = check_random_state(self.random_state)
+        n_bins_list = [i / n_bins for i in range(n_bins + 1)]
+        prob_dist_haar = [
+            self.probability_haar(n_bins_list[i], n_bins_list[i + 1], 2**self.n_qubits_)
+            for i in range(n_bins)
+        ]
+        params_shape = (n,) + self.get_weights_size()
+
+        params, params_conj = random_state.uniform(
+            0, 2 * np.pi, size=params_shape
+        ), random_state.uniform(0, 2 * np.pi, size=params_shape)
+
+        if with_state_prep:
+            stateprep = AnsatzMottoten(
+                n_layers=self.n_layers,
+                max_iter=self.max_iter,
+                batch_size=self.batch_size,
+                random_state=self.random_state,
+                n_qubits_=self.n_qubits_,
+                testing=self.testing,
+            )
+            params_state_shape = (n,) + stateprep.get_weights_size()
+
+            params_state, params_state_conj = random_state.uniform(
+                0, 2 * np.pi, size=params_state_shape
+            ), random_state.uniform(0, 2 * np.pi, size=params_state_shape)
+            params = list(zip(params, params_state, strict=True))
+            params_conj = list(zip(params_conj, params_state_conj, strict=True))
+
+        circ_expr, circ_ent = self.circuit_measures(self.n_layers, with_state_prep)
+        fidelities_ansatz = np.array(
+            [circ_expr(params[i], params_conj[i]) for i in range(n)]
+        )
+        if np.ndim(fidelities_ansatz) == 0:
+            fidelities_ansatz = np.full(n, fidelities_ansatz)
+
+        prob_dist_ansatz, edges = np.histogram(
+            fidelities_ansatz,
+            bins=n_bins,
+            range=(0, 1),
+            density=False,
+            weights=np.ones(n) / n,
+        )
+
+        div_kl = np.sum(rel_entr(prob_dist_ansatz, prob_dist_haar))
+
+        if to_plot:
+            widths = np.diff(edges)
+            fig, ax = plt.subplots(dpi=300)
+            ax.bar(
+                edges[:-1],
+                prob_dist_haar,
+                width=widths,
+                align="edge",
+                label="Haar",
+                edgecolor="white",
+                linewidth=0.1,
+            )
+
+            ax.bar(
+                edges[:-1],
+                prob_dist_ansatz,
+                width=widths,
+                align="edge",
+                label="A",
+                edgecolor="white",
+                alpha=0.5,
+                linewidth=0.1,
+            )
+
+            ax.set_xlabel("Fidelity")
+            ax.set_ylabel("Probability Density")
+            ax.set_xlim(0, 1)
+            ax.grid(True, linestyle="--", alpha=0.5)
+            ax.legend()
+            plt.show()
+
+        if self.n_qubits_ > 1:
+            states = np.array([circ_ent(params[i]) for i in range(n)])
+            ent = self.compute_entanglement(states)
+        else:
+            ent = 0
+        return div_kl, ent
+
+
+class AnsatzMottoten(BaseQVC):
+    def get_weights_size(self):
+        return 1, 1, int(2**self.n_qubits_)
+
+    def ansatz(self, weights, n_layers):
+        wires = range(self.n_qubits_)
+        qml.AmplitudeEmbedding(
+            features=weights[0, 0, :], wires=wires, normalize=True, pad_with=0.0
+        )
 
 
 class AnsatzSingleRot(BaseQVC):
@@ -536,6 +714,7 @@ class ScikitBase:
     _model_template = None
     _parameters_template = {}
     _parameters = {}
+    _id = None
 
     def __init__(self, *args, **kwargs):
         self._parameters = {
@@ -574,28 +753,34 @@ class SVMBase(ScikitBase):
 
 
 class SVMRBF(SVMBase):
+    _id = 38
     _parameters_template = {"kernel": "rbf", "probability": True, "verbose": True}
 
 
 class SVMLinear(SVMBase):
+    _id = 36
     _parameters_template = {"kernel": "linear", "probability": True, "verbose": True}
 
 
 class SVMPoly(SVMBase):
+    _id = 37
     _parameters_template = {"kernel": "poly", "probability": True, "verbose": True}
 
 
 class MyLogisticRegression(ScikitBase):
+    _id = 32
     _model_template = LogisticRegression
     _parameters_template = {"max_iter": 1_000_000, "verbose": 5}
 
 
 class RandomForest(ScikitBase):
+    _id = 35
     _model_template = RandomForestClassifier
     _parameters_template = {"verbose": 5}
 
 
 class KNN(ScikitBase):
+    _id = 34
     _model_template = KNeighborsClassifier
 
     def __init__(self, *args, **kwargs):
@@ -606,6 +791,7 @@ class KNN(ScikitBase):
 
 
 class MLP(ScikitBase):
+    _id = 33
     _model_template = MLPClassifier
     _parameters_template = {"verbose": True, "hidden_layer_sizes": ()}
 
@@ -614,59 +800,68 @@ class MLP(ScikitBase):
 
 
 class AdaBoostRotCNOT(ScikitBase):
+    _id = 16
+
     def __init__(self, *args, **kwargs):
         qvc = AnsatzRotCNOT(*args, **kwargs)
         self._model = AdaBoostClassifier(
-            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
+            estimator=qvc, n_estimators=10, random_state=kwargs.get("random_state")
         )
 
 
 class BaggingRotCNOT(ScikitBase):
+    _id = 17
+
     def __init__(self, *args, **kwargs):
         qvc = AnsatzRotCNOT(*args, **kwargs)
         self._model = BaggingClassifier(
             estimator=qvc,
-            n_estimators=100,
+            n_estimators=10,
             random_state=kwargs.get("random_state"),
-            bootstrap_features=True,
         )
 
 
 class AdaBoostEnt4(ScikitBase):
+    _id = 18
+
     def __init__(self, *args, **kwargs):
         qvc = AnsatzEnt4(*args, **kwargs)
         self._model = AdaBoostClassifier(
-            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
+            estimator=qvc, n_estimators=10, random_state=kwargs.get("random_state")
         )
 
 
 class BaggingEnt4(ScikitBase):
+    _id = 19
+
     def __init__(self, *args, **kwargs):
         qvc = AnsatzEnt4(*args, **kwargs)
         self._model = BaggingClassifier(
             estimator=qvc,
-            n_estimators=100,
+            n_estimators=10,
             random_state=kwargs.get("random_state"),
-            bootstrap_features=True,
         )
 
 
 class AdaBoostMaouaki15(ScikitBase):
+    _id = 20
+
     def __init__(self, *args, **kwargs):
         qvc = AnsatzMaouaki15(*args, **kwargs)
         self._model = AdaBoostClassifier(
-            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
+            estimator=qvc, n_estimators=10, random_state=kwargs.get("random_state")
         )
 
 
 class BaggingMaouaki15(ScikitBase):
+    _id = 21
+
     def __init__(self, *args, **kwargs):
         qvc = AnsatzMaouaki15(*args, **kwargs)
         self._model = BaggingClassifier(
             estimator=qvc,
-            n_estimators=100,
+            n_estimators=10,
             random_state=kwargs.get("random_state"),
-            bootstrap_features=True,
         )
 
 
@@ -699,11 +894,11 @@ class Voting_1_2_3(Voting):
 
 
 class SoftVoting_1_2_3(Voting_1_2_3, SoftVoting):
-    pass
+    _id = 22
 
 
 class HardVoting_1_2_3(Voting_1_2_3, HardVoting):
-    pass
+    _id = 23
 
 
 class Voting_1_2_3_5(Voting):
@@ -717,11 +912,11 @@ class Voting_1_2_3_5(Voting):
 
 
 class SoftVoting_1_2_3_5(Voting_1_2_3_5, SoftVoting):
-    pass
+    _id = 24
 
 
 class HardVoting_1_2_3_5(Voting_1_2_3_5, HardVoting):
-    pass
+    _id = 25
 
 
 class Voting_1_2_3_5_6(Voting):
@@ -736,11 +931,11 @@ class Voting_1_2_3_5_6(Voting):
 
 
 class SoftVoting_1_2_3_5_6(Voting_1_2_3_5_6, SoftVoting):
-    pass
+    _id = 26
 
 
 class HardVoting_1_2_3_5_6(Voting_1_2_3_5_6, HardVoting):
-    pass
+    _id = 27
 
 
 class Voting_7_8_9_10_11(Voting):
@@ -755,11 +950,11 @@ class Voting_7_8_9_10_11(Voting):
 
 
 class SoftVoting_7_8_9_10_11(Voting_7_8_9_10_11, SoftVoting):
-    pass
+    _id = 28
 
 
 class HardVoting_7_8_9_10_11(Voting_7_8_9_10_11, HardVoting):
-    pass
+    _id = 29
 
 
 class Voting_12_14_15(Voting):
@@ -772,37 +967,32 @@ class Voting_12_14_15(Voting):
 
 
 class SoftVoting_12_14_15(Voting_12_14_15, SoftVoting):
-    pass
+    _id = 30
 
 
 class HardVoting_12_14_15(Voting_12_14_15, HardVoting):
-    pass
+    _id = 31
 
 
 class AdaBoostLogistic(ScikitBase):
+    _id = 39
+
     def __init__(self, *args, **kwargs):
         qvc = MyLogisticRegression(*args, **kwargs)._model
         self._model = AdaBoostClassifier(
-            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
+            estimator=qvc, n_estimators=10, random_state=kwargs.get("random_state")
         )
 
 
 class BaggingLogistic(ScikitBase):
+    _id = 40
+
     def __init__(self, *args, **kwargs):
         qvc = MyLogisticRegression(*args, **kwargs)._model
         self._model = BaggingClassifier(
             estimator=qvc,
-            n_estimators=100,
+            n_estimators=10,
             random_state=kwargs.get("random_state"),
-            bootstrap_features=True,
-        )
-
-
-class AdaBoostMLP(ScikitBase):
-    def __init__(self, *args, **kwargs):
-        qvc = MLP(*args, **kwargs)._model
-        self._model = AdaBoostClassifier(
-            estimator=qvc, n_estimators=100, random_state=kwargs.get("random_state")
         )
 
 
@@ -816,11 +1006,11 @@ class VotingSVM(Voting):
 
 
 class SoftVotingSVM(VotingSVM, SoftVoting):
-    pass
+    _id = 41
 
 
 class HardVotingSVM(VotingSVM, HardVoting):
-    pass
+    _id = 42
 
 
 class VotingLogisticMLPKNN(Voting):
@@ -833,11 +1023,11 @@ class VotingLogisticMLPKNN(Voting):
 
 
 class SoftVotingLogisticMLPKNN(VotingLogisticMLPKNN, SoftVoting):
-    pass
+    _id = 43
 
 
 class HardVotingLogisticMLPKNN(VotingLogisticMLPKNN, HardVoting):
-    pass
+    _id = 44
 
 
 def get_model_classifier(args, seed):
@@ -882,7 +1072,6 @@ def get_model_classifier(args, seed):
         "hard_voting_12_14_15": HardVoting_12_14_15,
         "adaboost_logistic": AdaBoostLogistic,
         "bagging_logistic": BaggingLogistic,
-        "adaboost_mlp": AdaBoostMLP,
         "soft_voting_svm": SoftVotingSVM,
         "hard_voting_svm": HardVotingSVM,
         "soft_voting_logistic_mlp_knn": SoftVotingLogisticMLPKNN,
