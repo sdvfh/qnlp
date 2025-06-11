@@ -2,36 +2,27 @@ import itertools
 
 import numpy as np
 import pandas as pd
-from aeon.visualisation import plot_critical_difference
 from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from scipy.stats import wilcoxon
 from statsmodels.stats.multitest import multipletests
-from utils import (
-    classical_ensemble_models,
-    classical_models,
-    quantum_ensemble_models,
-    quantum_models,
-    read_summary,
-)
+from utils import classical_models, quantum_models, read_summary
 
 
-def pairwise_wilcoxon_holm(df, alpha=0.05):
-    models = df.columns.tolist()
+def pairwise_wilcoxon_holm(df_pair, alpha=0.05):
+    models = df_pair.columns.tolist()
     results = []
     for i, j in itertools.combinations(models, 2):
-        x = df[i].values
-        y = df[j].values
+        x = df_pair[i].values
+        y = df_pair[j].values
         if len(x) == len(y) and (x != y).any():
             stat, p_unc = wilcoxon(x, y)
         else:
-            stat, p_unc = float("nan"), 1.0
+            stat, p_unc = np.nan, 1.0
         results.append((i, j, stat, p_unc))
-
     pvals = [r[3] for r in results]
-
     reject, pvals_holm, _, _ = multipletests(pvals, alpha=alpha, method="holm")
-
     out = pd.DataFrame(
         results, columns=["model_i", "model_j", "statistic", "p_uncorrected"]
     )
@@ -40,44 +31,37 @@ def pairwise_wilcoxon_holm(df, alpha=0.05):
     return out
 
 
+# --- Lê e filtra seus dados ---
 df = read_summary()
 df = df[df["dataset"] == "chatgpt_easy"]
 df = df[df["n_features"] == 16]
 df = df[df["model_classifier"].isin(quantum_models + classical_models)]
 
+# --- Configura plotagem ---
 classifier_order = (
     df.groupby("model_classifier")["f1"]
     .mean()
     .sort_values(ascending=True)
     .index.tolist()
 )
-
-layers = sorted(df["n_layers"].unique())
+layers = sorted(df["n_layers"].unique())  # ex: [1,10]
 transformers = df["model_transformer"].unique()
 combos = [(tr, ly) for tr in transformers for ly in layers]
 
-n_tr = len(transformers)
 n_cl = len(classifier_order)
-n_combos = len(combos)
+n_comb = len(combos)
+width = 0.6 / n_comb
+positions = [np.arange(n_cl) - 0.3 + width / 2 + i * width for i in range(n_comb)]
 
-# Posições
-width = 0.6 / n_combos
-positions = [np.arange(n_cl) - 0.3 + width / 2 + i * width for i in range(n_combos)]
-
-# Cores e hatches
-colors = plt.cm.tab10(np.linspace(0, 1, n_tr))
+colors = plt.cm.tab10(np.linspace(0, 1, len(transformers)))
 color_map = {tr: colors[i] for i, tr in enumerate(transformers)}
 hatch_map = {1: "", 10: "//"}
+pos_map = {combos[i]: positions[i] for i in range(n_comb)}
 
-# Plot
+# --- Desenha boxplots ---
 fig, ax = plt.subplots(figsize=(8, 20), dpi=300)
 ax.set_axisbelow(True)
-# Ativa grid maior
-ax.grid(
-    True, which="major", color="#CCCCCC", linestyle="--", linewidth=0.8  # cinza claro
-)
-
-# Linhas delimitadoras (sem espaço extra)
+ax.grid(True, which="major", color="#CCCCCC", linestyle="--", linewidth=0.8)
 for y in np.arange(n_cl + 1) - 0.5:
     ax.axhline(y=y, color="black", linewidth=1, zorder=0)
 
@@ -98,23 +82,61 @@ for i, (tr, ly) in enumerate(combos):
         patch_artist=True,
         manage_ticks=False,
         zorder=1,
+        boxprops={"linewidth": 1.5},
+        whiskerprops={"linewidth": 1.5},
+        capprops={"linewidth": 1.5},
+        medianprops={"linewidth": 1.5},
     )
     for box in bp["boxes"]:
         box.set_facecolor(color_map[tr])
         box.set_hatch(hatch_map[ly])
 
-# Ajuste fino dos limites sem margens
-ax.set_ylim(n_cl - 0.5, -0.5)
-ax.margins(y=0)
+# --- Adiciona asteriscos de não-diferença ---
+alpha = 0.05
+for ci, clf in enumerate(classifier_order):
+    sub = df[df["model_classifier"] == clf].pivot(
+        index="seed", columns=["model_transformer", "n_layers"], values="f1"
+    )
+    # transforma colunas em tuplas (tr, ly)
+    sub.columns = pd.MultiIndex.from_tuples(sub.columns)
+    res = pairwise_wilcoxon_holm(sub, alpha)
+    for _, row in res[res["reject"] is False].iterrows():
+        col_i = row["model_i"]
+        col_j = row["model_j"]
+        # garantir mesmo transformer e layers distintos
+        if col_i[0] == col_j[0] and col_i[1] != col_j[1]:
+            # posições verticais
+            y1 = pos_map[col_i][ci]
+            y2 = pos_map[col_j][ci]
+            y_ast = np.mean([y1, y2])  # + width*0.5
+            # x no meio das medianas
+            med1 = sub[col_i].median()
+            med2 = sub[col_j].median()
+            x_ast = (med1 + med2) / 2
+            ax.text(
+                x_ast,
+                y_ast,
+                "x",
+                ha="center",
+                va="center",
+                color="#ed1fed",
+                fontsize=12,
+                fontweight="bold",
+                zorder=5,  # formato quadrado
+            )
 
-# Eixos e legendas
+# --- Finaliza e legenda ---
+ax.set_ylim(n_cl - 0.5, -0.5)
 ax.set_yticks(np.arange(n_cl))
 ax.set_yticklabels(classifier_order)
 ax.set_xlabel("F1 Score")
-ax.set_title("Boxplot F1 por Classifier, Transformer e N_Layers")
+ax.set_title(
+    "Boxplot F1 por Classifier, Transformer e N_Layers\n"
+    "'*' indica não-diferença (Wilcoxon+Holm)"
+)
 
-transformer_handles = [Patch(facecolor=color_map[tr], label=tr) for tr in transformers]
-layer_handles = [
+t_handles = [Patch(facecolor=color_map[tr], label=tr) for tr in transformers]
+l_handles = [
     Patch(
         facecolor="white",
         hatch=hatch_map[ly],
@@ -123,11 +145,17 @@ layer_handles = [
     )
     for ly in layers
 ]
-ax.legend(
-    handles=transformer_handles + layer_handles,
-    title="Transformer / N_Layers",
-    loc="best",
+s_handle = Line2D(
+    [0],
+    [0],
+    marker="x",
+    color="#ed1fed",
+    linestyle="",
+    markerfacecolor="none",  # sem preenchimento interno
+    markersize=12,
+    label="semelhantes",
 )
+ax.legend(handles=t_handles + l_handles + [s_handle], title="Legenda", loc="best")
 
 plt.tight_layout()
 plt.show()
