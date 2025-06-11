@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
-from matplotlib.patches import Patch
+from matplotlib.patches import Patch, Rectangle
 from scipy.stats import wilcoxon
 from statsmodels.stats.multitest import multipletests
 from utils import classical_models, quantum_models, read_summary
@@ -79,7 +79,7 @@ positions_bot, pos_map_bot = compute_positions(len(bot_order))
 # cores e hatches
 colors = plt.cm.tab10(np.linspace(0, 1, len(transformers)))
 color_map = {tr: colors[i] for i, tr in enumerate(transformers)}
-hatch_map = {1: "", 10: "//"}
+hatch_map = {layers[0]: "", layers[1]: "//"}
 
 
 # --- 3) Função genérica que plota um painel num eixo `ax` ---
@@ -117,8 +117,9 @@ def plot_panel(ax, df_panel, classifier_order, positions, pos_map):
             box.set_facecolor(color_map[tr])
             box.set_hatch(hatch_map[ly])
 
-    # anotações “x” para pares sem diferença (Wilcoxon+Holm)
     alpha = 0.05
+
+    # ① “x”: não-diferença entre layers dentro de cada transformer
     for ci, clf in enumerate(classifier_order):
         sub = df_panel[df_panel["model_classifier"] == clf].pivot(
             index="seed", columns=["model_transformer", "n_layers"], values="f1"
@@ -126,14 +127,14 @@ def plot_panel(ax, df_panel, classifier_order, positions, pos_map):
         sub.columns = pd.MultiIndex.from_tuples(sub.columns)
         res = pairwise_wilcoxon_holm(sub, alpha)
         for _, row in res[res["reject"] == False].iterrows():
-            col_i, col_j = row["model_i"], row["model_j"]
-            if col_i[0] == col_j[0] and col_i[1] != col_j[1]:
-                y1 = pos_map[col_i][ci]
-                y2 = pos_map[col_j][ci]
-                x_ast = (sub[col_i].median() + sub[col_j].median()) / 2
+            (t0, l0), (t1, l1) = row["model_i"], row["model_j"]
+            if t0 == t1 and l0 != l1:
+                y0 = pos_map[(t0, l0)][ci]
+                y1 = pos_map[(t1, l1)][ci]
+                x0 = (sub[(t0, l0)].median() + sub[(t1, l1)].median()) / 2
                 ax.text(
-                    x_ast,
-                    (y1 + y2) / 2,
+                    x0,
+                    (y0 + y1) / 2,
                     "x",
                     ha="center",
                     va="center",
@@ -143,14 +144,85 @@ def plot_panel(ax, df_panel, classifier_order, positions, pos_map):
                     zorder=5,
                 )
 
-    # ajustes de eixos
+    # ② “o”: não-diferença entre transformers para cada layer
+    for ci, clf in enumerate(classifier_order):
+        sub = df_panel[df_panel["model_classifier"] == clf].pivot(
+            index="seed", columns=["model_transformer", "n_layers"], values="f1"
+        )
+        sub.columns = pd.MultiIndex.from_tuples(sub.columns)
+        res = pairwise_wilcoxon_holm(sub, alpha)
+        for _, row in res[res["reject"] == False].iterrows():
+            (t0, l0), (t1, l1) = row["model_i"], row["model_j"]
+            if l0 == l1 and t0 != t1:
+                y0 = pos_map[(t0, l0)][ci]
+                y1 = pos_map[(t1, l1)][ci]
+                x0 = (sub[(t0, l0)].median() + sub[(t1, l1)].median()) / 2
+                ax.text(
+                    x0,
+                    (y0 + y1) / 2,
+                    "o",
+                    ha="center",
+                    va="center",
+                    color="#1f77b4",
+                    fontsize=12,
+                    fontweight="bold",
+                    zorder=5,
+                )
+
+    # ③ Retângulo: só se ambos os layers estiverem disponíveis no pivot
+    for ci, clf in enumerate(classifier_order):
+        sub = df_panel[df_panel["model_classifier"] == clf].pivot(
+            index="seed", columns=["model_transformer", "n_layers"], values="f1"
+        )
+        sub.columns = pd.MultiIndex.from_tuples(sub.columns)
+        avail_layers = set(sub.columns.get_level_values(1))
+        if not all(ly in avail_layers for ly in layers):
+            continue
+
+        for i, t0 in enumerate(transformers):
+            for t1 in transformers[i + 1 :]:
+                # testa layer a layer
+                pvals = []
+                for ly in layers:
+                    x = sub[(t0, ly)].values
+                    y = sub[(t1, ly)].values
+                    if len(x) == len(y) and (x != y).any():
+                        _, p = wilcoxon(x, y)
+                    else:
+                        p = 1.0
+                    pvals.append(p)
+                reject, _, _, _ = multipletests(pvals, alpha=alpha, method="holm")
+                if not reject.any():
+                    # extremos em x
+                    all_vals = np.hstack(
+                        [sub[(t0, ly)] for ly in layers]
+                        + [sub[(t1, ly)] for ly in layers]
+                    )
+                    x_min, x_max = all_vals.min(), all_vals.max()
+                    x_margin = 0.02 * (ax.get_xlim()[1] - ax.get_xlim()[0])
+                    x0, x1 = x_min - x_margin, x_max + x_margin
+                    # extremos em y
+                    ys = [pos_map[(t, ly)][ci] for t in (t0, t1) for ly in layers]
+                    y0, y1 = min(ys), max(ys)
+                    y_margin = width
+                    rect = Rectangle(
+                        (x0, y0 - y_margin),
+                        x1 - x0,
+                        (y1 - y0) + 2 * y_margin,
+                        fill=False,
+                        edgecolor="green",
+                        linewidth=1.5,
+                        zorder=4,
+                    )
+                    ax.add_patch(rect)
+
     ax.set_ylim(len(classifier_order) - 0.5, -0.5)
     ax.set_yticks(np.arange(len(classifier_order)))
     ax.set_yticklabels(classifier_order)
     ax.set_xlabel("F1 Score")
 
 
-# --- 4) Monta a figura com 2 subplots empilhados ---
+# --- 4) Monta a figura com 2 subplots ---
 fig, (ax_top, ax_bot) = plt.subplots(
     2,
     1,
@@ -179,18 +251,35 @@ l_handles = [
     )
     for ly in layers
 ]
-s_handle = Line2D(
-    [0],
-    [0],
+x_handle = Line2D(
+    [],
+    [],
     marker="x",
     color="#ed1fed",
     linestyle="",
     markerfacecolor="none",
     markersize=12,
-    label="semelhantes",
+    label="sem diferença entre layers",
+)
+o_handle = Line2D(
+    [],
+    [],
+    marker="o",
+    color="#1f77b4",
+    linestyle="",
+    markerfacecolor="#1f77b4",
+    markersize=12,
+    label="sem diferença entre transformers",
+)
+rect_handle = Line2D(
+    [],
+    [],
+    color="green",
+    linewidth=1.5,
+    label="ambas camadas não diferem entre transformers",
 )
 ax_bot.legend(
-    handles=t_handles + l_handles + [s_handle],
+    handles=t_handles + l_handles + [x_handle, o_handle, rect_handle],
     title="Legenda",
     loc="best",
     fontsize="small",
