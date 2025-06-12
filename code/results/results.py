@@ -1,175 +1,121 @@
 """
-Generate high-resolution box-and-whisker figures for:
+Unified box-and-whisker figure generator.
 
-1. Transformer comparison (original analysis).
-2. Feature-count comparison for *tomaarsen/mpnet-base-nli-matryoshka*.
+* Case A – colour = ``model_transformer`` (n_features = 16)
+* Case B – colour = ``n_features`` (single transformer)
 
-The script reproduces every visual and statistical element of the original
-notebook, merely adding light horizontal separators between the colour-coded
-blocks in each classifier row.
+Keeps:
+    • Wilcoxon + Holm annotations (“×” and “↔” arrows)
+    • light separators between colour blocks
+    • vertical dotted grid only
+    • unified x-limits across sub-panels
+    • opaque legend in lower-left
 
 Author : <your-name>
-Created: 2025-06-11
+Date    : 2025-06-11
 """
 
 from __future__ import annotations
 
 import itertools
 from pathlib import Path
-from typing import Dict, Iterable, List, Sequence, Tuple
+from typing import Dict, List, Sequence, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
-from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from scipy.stats import wilcoxon
 from statsmodels.stats.multitest import multipletests
 from utils import classical_models, quantum_models, read_summary
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Generic helpers
-# ──────────────────────────────────────────────────────────────────────────────
+# ───────────────────────────── helpers ────────────────────────────────────────
 
 
-def pairwise_wilcoxon_holm(
-    df_pair: pd.DataFrame, *, alpha: float = 0.05
-) -> pd.DataFrame:
-    """
-    Run pairwise Wilcoxon signed-rank tests across all column combinations and
-    correct the *p*-values using the Holm–Bonferroni method.
-
-    Parameters
-    ----------
-    df_pair:
-        Wide table whose columns are matched samples.
-    alpha:
-        Family-wise error-rate threshold for the Holm procedure.
-
-    Returns
-    -------
-    pd.DataFrame
-        Long-format table with raw statistics, uncorrected and Holm-adjusted
-        *p*-values, plus a *reject* indicator.
-    """
-    cols: List[str] = df_pair.columns.tolist()
-    records: List[Tuple[str, str, float, float]] = []
-    for ci, cj in itertools.combinations(cols, 2):
-        x, y = df_pair[ci].values, df_pair[cj].values
-        if len(x) == len(y) and (x != y).any():
-            stat, p_raw = wilcoxon(x, y)
-        else:  # samples identical or length mismatch
-            stat, p_raw = np.nan, 1.0
-        records.append((ci, cj, float(stat), float(p_raw)))
-
-    pvals = [rec[3] for rec in records]
-    reject, pvals_holm, _, _ = multipletests(pvals, alpha=alpha, method="holm")
-
-    df_out = pd.DataFrame.from_records(
-        records,
-        columns=["model_i", "model_j", "statistic", "p_uncorrected"],
-    )
-    df_out["p_holm"] = pvals_holm
-    df_out["reject"] = reject
-    return df_out
+def pairwise_wilcoxon_holm(df: pd.DataFrame, *, alpha: float = 0.05) -> pd.DataFrame:
+    """All-pairs Wilcoxon with Holm correction."""
+    records: list[tuple[str, str, float, float]] = []
+    for a, b in itertools.combinations(df.columns, 2):
+        x, y = df[a].values, df[b].values
+        stat, p = wilcoxon(x, y) if len(x) == len(y) and (x != y).any() else (np.nan, 1)
+        records.append((a, b, float(stat), float(p)))
+    pvals = [r[3] for r in records]
+    reject, p_holm, _, _ = multipletests(pvals, alpha=alpha, method="holm")
+    out = pd.DataFrame.from_records(
+        records, columns=["i", "j", "stat", "p_raw"]
+    ).assign(p_holm=p_holm, reject=reject)
+    return out
 
 
 def compute_positions(
-    n_classifiers: int,
-    primary: Sequence[str | int],
+    n_rows: int,
+    primaries: Sequence[str | int],
     layers: Sequence[int],
     width: float,
-    block_gap: float,
-) -> Tuple[List[np.ndarray], Dict[Tuple[str | int, int], np.ndarray]]:
-    """
-    Compute horizontal offsets (along the x-axis) for each combination of the
-    primary grouping variable (transformer or n_features) and n_layers.
-
-    Returns both the ordered list of offset arrays and a mapping
-    ``(primary_value, layer) → offsets`` for quick lookup.
-    """
-    positions: List[np.ndarray] = []
-    combos = [(pv, ly) for pv in primary for ly in layers]
-    for pi in range(len(primary)):
-        offset = pi * (len(layers) * width + block_gap) - block_gap
-        for li in range(len(layers)):
-            pos = np.arange(n_classifiers) - 0.3 + width / 2 + li * width + offset
-            positions.append(pos)
-    return positions, {combos[i]: positions[i] for i in range(len(combos))}
+    gap: float,
+) -> tuple[list[np.ndarray], dict[tuple[str | int, int], np.ndarray]]:
+    """x-offsets for every (primary, layer)."""
+    combos = [(p, layer) for p in primaries for layer in layers]
+    pos, mapping = [], {}
+    for pi, _ in enumerate(primaries):
+        offset = pi * (len(layers) * width + gap) - gap
+        for li, _ in enumerate(layers):
+            arr = np.arange(n_rows) - 0.3 + width / 2 + li * width + offset
+            pos.append(arr)
+    mapping = {c: pos[i] for i, c in enumerate(combos)}
+    return pos, mapping
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Plotters
-# ──────────────────────────────────────────────────────────────────────────────
-
-
-def _add_internal_separators(
+def add_inner_separators(
     ax: Axes,
-    pos_map: Dict[Tuple[str | int, int], np.ndarray],
-    primary_vals: Sequence[str | int],
+    pos_map: dict[tuple[str | int, int], np.ndarray],
+    primaries: Sequence[str | int],
     layers: Sequence[int],
     n_rows: int,
 ) -> None:
-    """
-    Draw subtle horizontal lines separating consecutive primary groups
-    (either transformers or n_features) for each classifier row.
-    """
-    for ci in range(n_rows):
-        for pi in range(len(primary_vals) - 1):
-            y_last_curr = pos_map[(primary_vals[pi], layers[-1])][ci]
-            y_first_next = pos_map[(primary_vals[pi + 1], layers[0])][ci]
-            y_sep = (y_last_curr + y_first_next) / 2
-            ax.axhline(
-                y=y_sep,
-                color="#545454",
-                linewidth=0.8,
-                zorder=0,
-                alpha=0.7,
-            )
+    """Light grey subdivision lines between colour blocks."""
+    for r in range(n_rows):
+        for i in range(len(primaries) - 1):
+            y_a = pos_map[(primaries[i], layers[-1])][r]
+            y_b = pos_map[(primaries[i + 1], layers[0])][r]
+            ax.axhline((y_a + y_b) / 2, color="#6A6A6A", lw=0.8, zorder=0, alpha=0.7)
 
 
-def plot_panel_transformer(
+# ──────────────────────────── core plotter ────────────────────────────────────
+
+
+def plot_panel(
     ax: Axes,
-    df_panel: pd.DataFrame,
+    df: pd.DataFrame,
     classifier_order: Sequence[int],
-    transformers: Sequence[str],
+    primary_col: str,
+    primary_vals: Sequence[str | int],
     layers: Sequence[int],
-    positions: List[np.ndarray],
-    pos_map: Dict[Tuple[str, int], np.ndarray],
+    positions: list[np.ndarray],
+    pos_map: dict[tuple[str | int, int], np.ndarray],
     width: float,
-    color_map: Dict[str, np.ndarray],
-    hatch_map: Dict[int, str],
+    color_map: dict[str | int, np.ndarray],
+    hatch_map: dict[int, str],
     *,
     alpha: float = 0.05,
 ) -> None:
-    """
-    Render one panel comparing different *model_transformer* values.
-
-    Visual grammar identical to the original notebook, with the addition of a
-    light interior separator between transformer blocks.
-    """
-    # ― grid and outer classifier separators ―
+    """Single (top/bottom) panel, agnostic to the primary variable."""
+    # grid + outer lines
     ax.set_axisbelow(True)
-    ax.grid(
-        axis="x",  # ←  apenas no eixo x → linhas verticais
-        which="major",
-        color="#CCCCCC",
-        linestyle="--",
-        linewidth=0.8,
-    )
+    ax.grid(axis="x", color="#CCCCCC", ls="--", lw=0.8)
     for y in np.arange(len(classifier_order) + 1) - 0.5:
-        ax.axhline(y=y, color="black", linewidth=1, zorder=0)
+        ax.axhline(y, color="black", lw=1, zorder=0)
 
-    # ― boxplots ―
-    combos = [(tr, ly) for tr in transformers for ly in layers]
-    for i, (tr, ly) in enumerate(combos):
+    # boxplots
+    combos = [(p, layer) for p in primary_vals for layer in layers]
+    for i, (p, l) in enumerate(combos):
         data = [
-            df_panel[
-                (df_panel["model_classifier"] == clf)
-                & (df_panel["model_transformer"] == tr)
-                & (df_panel["n_layers"] == ly)
+            df[
+                (df["model_classifier"] == clf)
+                & (df[primary_col] == p)
+                & (df["n_layers"] == l)
             ]["f1"].values
             for clf in classifier_order
         ]
@@ -181,30 +127,31 @@ def plot_panel_transformer(
             patch_artist=True,
             manage_ticks=False,
             zorder=1,
-            boxprops={"linewidth": 1.5},
-            whiskerprops={"linewidth": 1.5},
-            capprops={"linewidth": 1.5},
-            medianprops={"linewidth": 1.5},
+            boxprops={"lw": 1.5},
+            whiskerprops={"lw": 1.5},
+            capprops={"lw": 1.5},
+            medianprops={"lw": 1.5},
         )
         for box in bp["boxes"]:
-            box.set_facecolor(color_map[tr])
-            box.set_hatch(hatch_map[ly])
+            box.set_facecolor(color_map[p])
+            box.set_hatch(hatch_map[l])
 
-    # ― internal separators between transformer blocks ―
-    _add_internal_separators(ax, pos_map, transformers, layers, len(classifier_order))
+    add_inner_separators(ax, pos_map, primary_vals, layers, len(classifier_order))
 
-    # ― statistical annotations (× for layers, ↔ for transformers) ―
-    for ci, clf in enumerate(classifier_order):
-        pivot = df_panel[df_panel["model_classifier"] == clf].pivot(
-            index="seed", columns=["model_transformer", "n_layers"], values="f1"
+    # Wilcoxon annotations
+    for r, clf in enumerate(classifier_order):
+        piv = df[df["model_classifier"] == clf].pivot(
+            index="seed", columns=[primary_col, "n_layers"], values="f1"
         )
-        pivot.columns = pd.MultiIndex.from_tuples(pivot.columns)
-        res_layers = pairwise_wilcoxon_holm(pivot, alpha=alpha)
-        for _, row in res_layers[~res_layers["reject"]].iterrows():
-            (t0, l0), (t1, l1) = row["model_i"], row["model_j"]
-            if t0 == t1 and l0 != l1:
-                y0, y1 = pos_map[(t0, l0)][ci], pos_map[(t1, l1)][ci]
-                x_mid = (pivot[(t0, l0)].median() + pivot[(t1, l1)].median()) / 2
+        piv.columns = pd.MultiIndex.from_tuples(piv.columns)
+
+        # × : layers
+        res = pairwise_wilcoxon_holm(piv, alpha=alpha)
+        for _, row in res[~res["reject"]].iterrows():  # noqa: F841
+            (p0, l0), (p1, l1) = row["i"], row["j"]
+            if p0 == p1 and l0 != l1:
+                y0, y1 = pos_map[(p0, l0)][r], pos_map[(p1, l1)][r]
+                x_mid = (piv[(p0, l0)].median() + piv[(p1, l1)].median()) / 2
                 ax.text(
                     x_mid,
                     (y0 + y1) / 2,
@@ -217,396 +164,186 @@ def plot_panel_transformer(
                     zorder=5,
                 )
 
-        for ly in layers:
-            if ly not in pivot.columns.get_level_values(1):
+        # ↔ : primary
+        for layer in layers:
+            if layer not in piv.columns.get_level_values(1):
                 continue
-            sub = pivot.xs(ly, level=1, axis=1)
-            res_trans = pairwise_wilcoxon_holm(sub, alpha=alpha)
-            for _, row in res_trans[~res_trans["reject"]].iterrows():
-                t0, t1 = row["model_i"], row["model_j"]
-                m0, m1 = pivot[(t0, ly)].median(), pivot[(t1, ly)].median()
-                y0, y1 = pos_map[(t0, ly)][ci], pos_map[(t1, ly)][ci]
+            sub = piv.xs(layer, level=1, axis=1)
+            res_p = pairwise_wilcoxon_holm(sub, alpha=alpha)
+            for _, row in res_p[~res_p["reject"]].iterrows():  # noqa: F841
+                p0, p1 = row["i"], row["j"]
+                y0, y1 = pos_map[(p0, layer)][r], pos_map[(p1, layer)][r]
+                m0, m1 = piv[(p0, layer)].median(), piv[(p1, layer)].median()
                 ax.annotate(
                     "",
-                    xy=(m1, y1),
-                    xytext=(m0, y0),
-                    arrowprops={
-                        "arrowstyle": "<->",
-                        "color": "green",
-                        "linewidth": 1.5,
-                    },
+                    (m1, y1),
+                    (m0, y0),
+                    arrowprops={"arrowstyle": "<->", "color": "green", "lw": 1.5},
                     zorder=5,
                 )
 
-    # ― axis cosmetics ―
+    # cosmetics
     ax.set_ylim(len(classifier_order) - 0.5, -0.5)
     ax.set_yticks(np.arange(len(classifier_order)))
     ax.set_yticklabels(classifier_order)
     ax.set_xlabel("F1 score")
 
 
-def plot_panel_features(
-    ax: Axes,
-    df_panel: pd.DataFrame,
-    classifier_order: Sequence[int],
-    features: Sequence[int],
-    layers: Sequence[int],
-    positions: List[np.ndarray],
-    pos_map: Dict[Tuple[int, int], np.ndarray],
-    width: float,
-    color_map: Dict[int, np.ndarray],
-    hatch_map: Dict[int, str],
+# ──────────────────────────── figure driver ───────────────────────────────────
+
+
+def generate_figure(
+    df: pd.DataFrame,
+    dataset: str,
+    primary_col: str,
+    primary_vals: Sequence[str | int],
+    color_map: dict[str | int, np.ndarray],
+    arrow_label: str,
+    attr_label_fmt: str,
+    out_name: str,
     *,
-    alpha: float = 0.05,
+    layers: Sequence[int],
+    hatch_map: dict[int, str],
+    block_gap: float = 0.1,
 ) -> None:
-    """
-    Render one panel comparing different *n_features* values for a single
-    transformer.
+    """Create one PDF (top 3/33 vs. others) for the chosen ‘primary’."""
+    df_top = df[df["model_classifier"].isin([3, 33])]
+    df_bot = df[~df["model_classifier"].isin([3, 33])]
+    orders = [
+        df_top.groupby("model_classifier")["f1"].mean().sort_values().index.tolist(),
+        df_bot.groupby("model_classifier")["f1"].mean().sort_values().index.tolist(),
+    ]
 
-    Mirrors the visual grammar of `plot_panel_transformer`, substituting colours
-    for feature counts instead of transformer names.
-    """
-    # ― grid and outer classifier separators ―
-    ax.set_axisbelow(True)
-    ax.grid(
-        axis="x",  # ←  apenas no eixo x → linhas verticais
-        which="major",
-        color="#CCCCCC",
-        linestyle="--",
-        linewidth=0.8,
+    width = 0.6 / (len(primary_vals) * len(layers))
+    pos_top, map_top = compute_positions(
+        len(orders[0]), primary_vals, layers, width, block_gap
     )
-    for y in np.arange(len(classifier_order) + 1) - 0.5:
-        ax.axhline(y=y, color="black", linewidth=1, zorder=0)
+    pos_bot, map_bot = compute_positions(
+        len(orders[1]), primary_vals, layers, width, block_gap
+    )
 
-    # ― boxplots ―
-    combos = [(ft, ly) for ft in features for ly in layers]
-    for i, (ft, ly) in enumerate(combos):
-        data = [
-            df_panel[
-                (df_panel["model_classifier"] == clf)
-                & (df_panel["n_features"] == ft)
-                & (df_panel["n_layers"] == ly)
-            ]["f1"].values
-            for clf in classifier_order
-        ]
-        bp = ax.boxplot(
-            data,
-            positions=positions[i],
-            widths=width,
-            vert=False,
-            patch_artist=True,
-            manage_ticks=False,
-            zorder=1,
-            boxprops={"linewidth": 1.5},
-            whiskerprops={"linewidth": 1.5},
-            capprops={"linewidth": 1.5},
-            medianprops={"linewidth": 1.5},
+    fig, (ax_t, ax_b) = plt.subplots(
+        2,
+        1,
+        figsize=(8, 20),
+        dpi=600,
+        sharex=True,
+        gridspec_kw={"height_ratios": [len(orders[0]), len(orders[1])]},
+    )
+
+    for ax, subset, order, pos, pmap in [
+        (ax_t, df_top, orders[0], pos_top, map_top),
+        (ax_b, df_bot, orders[1], pos_bot, map_bot),
+    ]:
+        plot_panel(
+            ax,
+            subset,
+            order,
+            primary_col,
+            primary_vals,
+            layers,
+            pos,
+            pmap,
+            width,
+            color_map,
+            hatch_map,
         )
-        for box in bp["boxes"]:
-            box.set_facecolor(color_map[ft])
-            box.set_hatch(hatch_map[ly])
 
-    # ― internal separators between feature blocks ―
-    _add_internal_separators(ax, pos_map, features, layers, len(classifier_order))
+    ax_t.set_title("Modelos 3 e 33")
+    ax_b.set_title("Demais Modelos")
 
-    # ― statistical annotations (× for layers, ↔ for features) ―
-    for ci, clf in enumerate(classifier_order):
-        pivot = df_panel[df_panel["model_classifier"] == clf].pivot(
-            index="seed", columns=["n_features", "n_layers"], values="f1"
+    handles_primary = [
+        Patch(facecolor=color_map[p], label=attr_label_fmt.format(p))
+        for p in primary_vals
+    ]
+    handles_layers = [
+        Patch(
+            facecolor="white",
+            hatch=hatch_map[layer],
+            edgecolor="black",
+            label=f"{layer} camada{'s' if layer > 1 else ''}",
         )
-        pivot.columns = pd.MultiIndex.from_tuples(pivot.columns)
-        res_layers = pairwise_wilcoxon_holm(pivot, alpha=alpha)
-        for _, row in res_layers[~res_layers["reject"]].iterrows():
-            (f0, l0), (f1, l1) = row["model_i"], row["model_j"]
-            if f0 == f1 and l0 != l1:
-                y0, y1 = pos_map[(f0, l0)][ci], pos_map[(f1, l1)][ci]
-                x_mid = (pivot[(f0, l0)].median() + pivot[(f1, l1)].median()) / 2
-                ax.text(
-                    x_mid,
-                    (y0 + y1) / 2,
-                    "x",
-                    ha="center",
-                    va="center",
-                    color="#ed1fed",
-                    fontsize=12,
-                    fontweight="bold",
-                    zorder=5,
-                )
+        for layer in layers
+    ]
+    x_handle = Line2D(
+        [],
+        [],
+        marker="x",
+        color="#ed1fed",
+        ls="",
+        markersize=12,
+        label="Sem diferença entre camadas",
+    )
+    arrow_handle = Line2D([], [], color="green", lw=1.5, label=arrow_label)
 
-        for ly in layers:
-            if ly not in pivot.columns.get_level_values(1):
-                continue
-            sub = pivot.xs(ly, level=1, axis=1)
-            res_feat = pairwise_wilcoxon_holm(sub, alpha=alpha)
-            for _, row in res_feat[~res_feat["reject"]].iterrows():
-                f0, f1 = row["model_i"], row["model_j"]
-                m0, m1 = pivot[(f0, ly)].median(), pivot[(f1, ly)].median()
-                y0, y1 = pos_map[(f0, ly)][ci], pos_map[(f1, ly)][ci]
-                ax.annotate(
-                    "",
-                    xy=(m1, y1),
-                    xytext=(m0, y0),
-                    arrowprops={
-                        "arrowstyle": "<->",
-                        "color": "green",
-                        "linewidth": 1.5,
-                    },
-                    zorder=5,
-                )
+    ax_b.legend(
+        handles=handles_primary + handles_layers + [x_handle, arrow_handle],
+        title="Legenda",
+        loc="lower left",
+        fontsize="small",
+        framealpha=1.0,
+        edgecolor="black",
+        fancybox=True,
+    )
 
-    # ― axis cosmetics ―
-    ax.set_ylim(len(classifier_order) - 0.5, -0.5)
-    ax.set_yticks(np.arange(len(classifier_order)))
-    ax.set_yticklabels(classifier_order)
-    ax.set_xlabel("F1 score")
+    plt.tight_layout()
+    out_path = Path("../../figures") / f"{out_name}_{dataset}.pdf"
+    fig.savefig(out_path, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved: {out_path}")
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Main routine – generate both figure families
-# ──────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────────── main ─────────────────────────────────────────
 
 if __name__ == "__main__":
-    # Common dataset names
     DATASETS = ("chatgpt_easy", "chatgpt_medium", "chatgpt_hard")
-    OUTPUT_DIR = Path("../../figures").resolve()
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    layers = sorted(read_summary()["n_layers"].unique())
+    hatch_map = {layers[0]: "", layers[1]: "//"}
 
-    # Shared metadata
-    layers: List[int] = sorted(read_summary()["n_layers"].unique())
-    hatch_map: Dict[int, str] = {layers[0]: "", layers[1]: "//"}
-    block_gap = 0.1
-
-    # ── 1. Transformer analysis (original) ──────────────────────────────
-    transformers: List[str] = read_summary()["model_transformer"].unique().tolist()
-    width_tr = 0.6 / (len(transformers) * len(layers))
+    # A) transformers (n_features = 16)
+    df_tr = read_summary()
+    df_tr = df_tr[df_tr["n_features"] == 16]
+    df_tr = df_tr[df_tr["model_classifier"].isin(quantum_models + classical_models)]
+    transformers = df_tr["model_transformer"].unique().tolist()
     colors_tr = plt.cm.tab10(np.linspace(0, 1, len(transformers)))
-    color_map_tr: Dict[str, np.ndarray] = {
-        tr: colors_tr[i] for i, tr in enumerate(transformers)
-    }
+    cmap_tr = {t: colors_tr[i] for i, t in enumerate(transformers)}
 
     for ds in DATASETS:
-        df = read_summary()
-        df = df[
-            (df["dataset"] == ds)
-            & (df["n_features"] == 16)
-            & (df["model_classifier"].isin(quantum_models + classical_models))
-        ].copy()
-
-        df_top = df[df["model_classifier"].isin([3, 33])]
-        df_bot = df[~df["model_classifier"].isin([3, 33])]
-
-        top_order = (
-            df_top.groupby("model_classifier")["f1"].mean().sort_values().index.tolist()
-        )
-        bot_order = (
-            df_bot.groupby("model_classifier")["f1"].mean().sort_values().index.tolist()
+        generate_figure(
+            df=df_tr[df_tr["dataset"] == ds],
+            dataset=ds,
+            primary_col="model_transformer",
+            primary_vals=transformers,
+            color_map=cmap_tr,
+            arrow_label="Sem diferença entre transformers",
+            attr_label_fmt="{}",  # label == transformer string
+            out_name="transformers",
+            layers=layers,
+            hatch_map=hatch_map,
         )
 
-        pos_top, pos_map_top = compute_positions(
-            len(top_order), transformers, layers, width_tr, block_gap
-        )
-        pos_bot, pos_map_bot = compute_positions(
-            len(bot_order), transformers, layers, width_tr, block_gap
-        )
-
-        fig, (ax_top, ax_bot) = plt.subplots(
-            2,
-            1,
-            figsize=(8, 20),
-            dpi=600,
-            sharex=False,
-            gridspec_kw={"height_ratios": [len(top_order), len(bot_order)]},
-        )
-
-        plot_panel_transformer(
-            ax_top,
-            df_top,
-            top_order,
-            transformers,
-            layers,
-            pos_top,
-            pos_map_top,
-            width_tr,
-            color_map_tr,
-            hatch_map,
-        )
-        plot_panel_transformer(
-            ax_bot,
-            df_bot,
-            bot_order,
-            transformers,
-            layers,
-            pos_bot,
-            pos_map_bot,
-            width_tr,
-            color_map_tr,
-            hatch_map,
-        )
-
-        ax_top.set_title("Modelos 3 e 33")
-        ax_bot.set_title("Demais Modelos")
-
-        handles_tr = [Patch(facecolor=color_map_tr[t], label=t) for t in transformers]
-        handles_layers = [
-            Patch(
-                facecolor="white",
-                hatch=hatch_map[ly],
-                edgecolor="black",
-                label=f"{ly} camada{'s' if ly == 10 else ''}",
-            )
-            for ly in layers
-        ]
-        x_handle = Line2D(
-            [],
-            [],
-            marker="x",
-            color="#ed1fed",
-            linestyle="",
-            markerfacecolor="none",
-            markersize=12,
-            label="Sem diferença entre camadas",
-        )
-        arrow_handle = Line2D(
-            [],
-            [],
-            color="green",
-            marker="None",
-            linestyle="-",
-            linewidth=1.5,
-            label="Sem diferença entre transformers",
-        )
-        ax_bot.legend(
-            handles=handles_tr + handles_layers + [x_handle, arrow_handle],
-            title="Legenda",
-            loc="lower left",
-            fontsize="small",
-            framealpha=1.0,  # ← opacidade total
-            edgecolor="black",  # (opcional) cor da borda
-            fancybox=True,  # (opcional) cantos não-arredondados
-        )
-
-        plt.tight_layout()
-        out_path = OUTPUT_DIR / f"transformers_{ds}.pdf"
-        fig.savefig(out_path, bbox_inches="tight")
-        plt.close(fig)
-        print(f"Saved: {out_path}")
-
-    # ── 2. Feature-count analysis for the Matryoshka model ───────────────
-    TARGET_TRANSFORMER = "tomaarsen/mpnet-base-nli-matryoshka"
-    features_all = [16, 32, 768]
-    width_ft = 0.6 / (len(features_all) * len(layers))
-    colors_ft = plt.cm.tab10(np.linspace(0, 1, len(features_all)))
-    color_map_ft: Dict[int, np.ndarray] = {
-        ft: colors_ft[i] for i, ft in enumerate(features_all)
-    }
+    # B) n_features (single transformer)
+    TARGET = "tomaarsen/mpnet-base-nli-matryoshka"
+    feats = [16, 32, 768]
+    df_ft = read_summary()
+    df_ft = df_ft[
+        (df_ft["model_transformer"] == TARGET)
+        & (df_ft["n_features"].isin(feats))
+        & (df_ft["model_classifier"].isin(quantum_models + classical_models))
+    ]
+    colors_ft = plt.cm.tab10(np.linspace(0, 1, len(feats)))
+    cmap_ft = {t: colors_ft[i] for i, t in enumerate(feats)}
 
     for ds in DATASETS:
-        df = read_summary()
-        df = df[
-            (df["dataset"] == ds)
-            & (df["model_transformer"] == TARGET_TRANSFORMER)
-            & (df["n_features"].isin(features_all))
-            & (df["model_classifier"].isin(quantum_models + classical_models))
-        ].copy()
-
-        df_top = df[df["model_classifier"].isin([3, 33])]
-        df_bot = df[~df["model_classifier"].isin([3, 33])]
-
-        top_order = (
-            df_top.groupby("model_classifier")["f1"].mean().sort_values().index.tolist()
+        generate_figure(
+            df=df_ft[df_ft["dataset"] == ds],
+            dataset=ds,
+            primary_col="n_features",
+            primary_vals=feats,
+            color_map=cmap_ft,
+            arrow_label="Sem diferença entre n° de atributos",
+            attr_label_fmt="{} atributos",
+            out_name="n_features",
+            layers=layers,
+            hatch_map=hatch_map,
         )
-        bot_order = (
-            df_bot.groupby("model_classifier")["f1"].mean().sort_values().index.tolist()
-        )
-
-        pos_top, pos_map_top = compute_positions(
-            len(top_order), features_all, layers, width_ft, block_gap
-        )
-        pos_bot, pos_map_bot = compute_positions(
-            len(bot_order), features_all, layers, width_ft, block_gap
-        )
-
-        fig, (ax_top, ax_bot) = plt.subplots(
-            2,
-            1,
-            figsize=(8, 20),
-            dpi=600,
-            sharex=False,
-            gridspec_kw={"height_ratios": [len(top_order), len(bot_order)]},
-        )
-
-        plot_panel_features(
-            ax_top,
-            df_top,
-            top_order,
-            features_all,
-            layers,
-            pos_top,
-            pos_map_top,
-            width_ft,
-            color_map_ft,
-            hatch_map,
-        )
-        plot_panel_features(
-            ax_bot,
-            df_bot,
-            bot_order,
-            features_all,
-            layers,
-            pos_bot,
-            pos_map_bot,
-            width_ft,
-            color_map_ft,
-            hatch_map,
-        )
-
-        ax_top.set_title("Modelos 3 e 33")
-        ax_bot.set_title("Demais Modelos")
-
-        handles_ft = [
-            Patch(facecolor=color_map_ft[ft], label=f"{ft} atributos")
-            for ft in features_all
-        ]
-        handles_layers = [
-            Patch(
-                facecolor="white",
-                hatch=hatch_map[ly],
-                edgecolor="black",
-                label=f"{ly} camada{'s' if ly == 10 else ''}",
-            )
-            for ly in layers
-        ]
-        x_handle = Line2D(
-            [],
-            [],
-            marker="x",
-            color="#ed1fed",
-            linestyle="",
-            markerfacecolor="none",
-            markersize=12,
-            label="Sem diferença entre camadas",
-        )
-        arrow_handle = Line2D(
-            [],
-            [],
-            color="green",
-            marker="None",
-            linestyle="-",
-            linewidth=1.5,
-            label="Sem diferença entre n° de atributos",
-        )
-        ax_bot.legend(
-            handles=handles_ft + handles_layers + [x_handle, arrow_handle],
-            title="Legenda",
-            loc="lower left",
-            fontsize="small",
-            framealpha=1.0,  # ← opacidade total
-            edgecolor="black",  # (opcional) cor da borda
-            fancybox=True,  # (opcional) cantos não-arredondados
-        )
-
-        plt.tight_layout()
-        out_path = OUTPUT_DIR / f"n_features_{ds}.pdf"
-        fig.savefig(out_path, bbox_inches="tight")
-        plt.close(fig)
-        print(f"Saved: {out_path}")
