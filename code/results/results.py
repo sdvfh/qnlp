@@ -97,7 +97,7 @@ def plot_panel(
         )
         pivot.columns = pd.MultiIndex.from_tuples(pivot.columns)
         res = pairwise_wilcoxon_holm(pivot, alpha)
-        for _, row in res[res["reject"] == False].iterrows():
+        for _, row in res[~res["reject"]].iterrows():
             (t0, l0), (t1, l1) = row["model_i"], row["model_j"]
             if t0 == t1 and l0 != l1:
                 y0 = pos_map[(t0, l0)][ci]
@@ -126,7 +126,7 @@ def plot_panel(
                 continue
             sub = pivot.xs(ly, level=1, axis=1)
             res = pairwise_wilcoxon_holm(sub, alpha)
-            for _, row in res[res["reject"] == False].iterrows():
+            for _, row in res[~res["reject"]].iterrows():
                 t0, t1 = row["model_i"], row["model_j"]
                 m0 = pivot[(t0, ly)].median()
                 m1 = pivot[(t1, ly)].median()
@@ -136,7 +136,11 @@ def plot_panel(
                     "",
                     xy=(m1, y1),
                     xytext=(m0, y0),
-                    arrowprops=dict(arrowstyle="<->", color="green", linewidth=1.5),
+                    arrowprops={
+                        "arrowstyle": "<->",
+                        "color": "green",
+                        "linewidth": 1.5,
+                    },
                     zorder=5,
                 )
 
@@ -189,7 +193,7 @@ for dataset_name in ["chatgpt_easy", "chatgpt_medium", "chatgpt_hard"]:
     fig, (ax_top, ax_bot) = plt.subplots(
         2,
         1,
-        figsize=(8, 24),
+        figsize=(8, 20),
         dpi=600,
         sharex=False,
         gridspec_kw={"height_ratios": [len(top_order), len(bot_order)]},
@@ -245,5 +249,5 @@ for dataset_name in ["chatgpt_easy", "chatgpt_medium", "chatgpt_hard"]:
 
     plt.tight_layout()
     # save as PDF for Overleaf inclusion
-    fig.savefig(f"{dataset_name}.pdf", bbox_inches="tight")
+    fig.savefig(f"../../figures/transformers_{dataset_name}.pdf", bbox_inches="tight")
     plt.close(fig)
