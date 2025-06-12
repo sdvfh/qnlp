@@ -29,13 +29,23 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from scipy.stats import wilcoxon
 from statsmodels.stats.multitest import multipletests
-from utils import classical_models, quantum_models, read_summary
+from utils import (
+    classical_ensemble_models,
+    classical_models,
+    quantum_ensemble_models,
+    quantum_models,
+    read_summary,
+)
 
 # ───────────────────────────── helpers ────────────────────────────────────────
 
 
 def pairwise_wilcoxon_holm(df: pd.DataFrame, *, alpha: float = 0.05) -> pd.DataFrame:
     """All-pairs Wilcoxon with Holm correction."""
+    # ── NOVO: nada a comparar ───────────────────────────────────────────
+    if df.shape[1] < 2:
+        return pd.DataFrame(columns=["i", "j", "stat", "p_raw", "p_holm", "reject"])
+    # --------------------------------------------------------------------
     records: list[tuple[str, str, float, float]] = []
     for a, b in itertools.combinations(df.columns, 2):
         x, y = df[a].values, df[b].values
@@ -294,16 +304,17 @@ def generate_figure(
 
 
 # ─────────────────────────────── main ─────────────────────────────────────────
-
 if __name__ == "__main__":
     DATASETS = ("chatgpt_easy", "chatgpt_medium", "chatgpt_hard")
-    layers = sorted(read_summary()["n_layers"].unique())
+    layers = sorted(read_summary()["n_layers"].unique())  # [1, 10]
     hatch_map = {layers[0]: "", layers[1]: "//"}
 
-    # A) transformers (n_features = 16)
+    # ---------- A) transformers: cores distintas (n_features = 16) -------------
     df_tr = read_summary()
-    df_tr = df_tr[df_tr["n_features"] == 16]
-    df_tr = df_tr[df_tr["model_classifier"].isin(quantum_models + classical_models)]
+    df_tr = df_tr[
+        (df_tr["n_features"] == 16)
+        & (df_tr["model_classifier"].isin(classical_models + quantum_models))
+    ]
     transformers = df_tr["model_transformer"].unique().tolist()
     colors_tr = plt.cm.Set2(np.linspace(0, 0.5, len(transformers)))
     cmap_tr = {t: colors_tr[i] for i, t in enumerate(transformers)}
@@ -316,23 +327,23 @@ if __name__ == "__main__":
             primary_vals=transformers,
             color_map=cmap_tr,
             arrow_label="Sem diferença entre transformers",
-            attr_label_fmt="{}",  # label == transformer string
+            attr_label_fmt="{}",
             out_name="transformers",
             layers=layers,
             hatch_map=hatch_map,
         )
 
-    # B) n_features (single transformer)
+    # ---------- B) n_features: cores = 16/32/768 (Matryoshka) ------------------
     TARGET = "tomaarsen/mpnet-base-nli-matryoshka"
     feats = [16, 32, 768]
     df_ft = read_summary()
     df_ft = df_ft[
         (df_ft["model_transformer"] == TARGET)
         & (df_ft["n_features"].isin(feats))
-        & (df_ft["model_classifier"].isin(quantum_models + classical_models))
+        & (df_ft["model_classifier"].isin(classical_models + quantum_models))
     ]
     colors_ft = plt.cm.Set2(np.linspace(0.5, 1, len(feats)))
-    cmap_ft = {t: colors_ft[i] for i, t in enumerate(feats)}
+    cmap_ft = {f: colors_ft[i] for i, f in enumerate(feats)}
 
     for ds in DATASETS:
         generate_figure(
@@ -344,6 +355,37 @@ if __name__ == "__main__":
             arrow_label="Sem diferença entre n° de atributos",
             attr_label_fmt="{} atributos",
             out_name="n_features",
+            layers=layers,
+            hatch_map=hatch_map,
+        )
+
+    # ---------- C) análise final: cor única, camadas 1 vs 10 -------------------
+    # DATASETS_FINAL = (*DATASETS, "sst")
+    DATASETS_FINAL = (*DATASETS,)
+    MODELS_ALL = (
+        classical_models
+        + quantum_models
+        + classical_ensemble_models
+        + quantum_ensemble_models
+    )
+    df_final = read_summary()
+    df_final = df_final[
+        (df_final["n_features"] == 16)
+        & (df_final["model_transformer"] == TARGET)
+        & (df_final["model_classifier"].isin(MODELS_ALL))
+    ]
+    cmap_final = {TARGET: "#1f77b4"}  # uma cor apenas
+
+    for ds in DATASETS_FINAL:
+        generate_figure(
+            df=df_final[df_final["dataset"] == ds],
+            dataset=ds,
+            primary_col="model_transformer",  # coluna real, mas 1 valor fixo
+            primary_vals=[TARGET],
+            color_map=cmap_final,
+            arrow_label="",  # seta não aparece
+            attr_label_fmt="",  # evita label redundante
+            out_name="f1_layers",
             layers=layers,
             hatch_map=hatch_map,
         )
