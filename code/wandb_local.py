@@ -1,13 +1,15 @@
 import pickle
 from pathlib import Path
+from time import sleep
 
 import wandb
 
-api = wandb.Api(timeout=60)
+api = wandb.Api(timeout=360)
 runs = api.runs("svf/qnlp2")
 
 history = []
-for run in runs:
+for i, run in enumerate(runs):
+    print(i)
     summary = dict(run.summary)
     if "_wandb" in summary:
         summary.pop("_wandb")
@@ -22,6 +24,7 @@ for run in runs:
             "summary": summary,
         }
     )
+    sleep(0.2)
 
 root = Path(__file__).parent.parent
 dataset_folder = root / "results"
