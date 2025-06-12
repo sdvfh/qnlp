@@ -178,7 +178,7 @@ def plot_panel(
                     "",
                     (m1, y1),
                     (m0, y0),
-                    arrowprops={"arrowstyle": "<->", "color": "green", "lw": 1.5},
+                    arrowprops={"arrowstyle": "<->", "color": "#0b31bf", "lw": 1.5},
                     zorder=5,
                 )
 
@@ -210,8 +210,8 @@ def generate_figure(
     df_top = df[df["model_classifier"].isin([3, 33])]
     df_bot = df[~df["model_classifier"].isin([3, 33])]
     orders = [
-        df_top.groupby("model_classifier")["f1"].mean().sort_values().index.tolist(),
-        df_bot.groupby("model_classifier")["f1"].mean().sort_values().index.tolist(),
+        sorted(df_top["model_classifier"].unique()),
+        sorted(df_bot["model_classifier"].unique()),
     ]
 
     width = 0.6 / (len(primary_vals) * len(layers))
@@ -227,7 +227,7 @@ def generate_figure(
         1,
         figsize=(8, 20),
         dpi=600,
-        sharex=True,
+        sharex=False,
         gridspec_kw={"height_ratios": [len(orders[0]), len(orders[1])]},
     )
 
@@ -274,7 +274,7 @@ def generate_figure(
         markersize=12,
         label="Sem diferença entre camadas",
     )
-    arrow_handle = Line2D([], [], color="green", lw=1.5, label=arrow_label)
+    arrow_handle = Line2D([], [], color="#0b31bf", lw=1.5, label=arrow_label)
 
     ax_b.legend(
         handles=handles_primary + handles_layers + [x_handle, arrow_handle],
@@ -305,7 +305,7 @@ if __name__ == "__main__":
     df_tr = df_tr[df_tr["n_features"] == 16]
     df_tr = df_tr[df_tr["model_classifier"].isin(quantum_models + classical_models)]
     transformers = df_tr["model_transformer"].unique().tolist()
-    colors_tr = plt.cm.tab10(np.linspace(0, 1, len(transformers)))
+    colors_tr = plt.cm.Set2(np.linspace(0, 0.5, len(transformers)))
     cmap_tr = {t: colors_tr[i] for i, t in enumerate(transformers)}
 
     for ds in DATASETS:
@@ -331,7 +331,7 @@ if __name__ == "__main__":
         & (df_ft["n_features"].isin(feats))
         & (df_ft["model_classifier"].isin(quantum_models + classical_models))
     ]
-    colors_ft = plt.cm.tab10(np.linspace(0, 1, len(feats)))
+    colors_ft = plt.cm.Set2(np.linspace(0.5, 1, len(feats)))
     cmap_ft = {t: colors_ft[i] for i, t in enumerate(feats)}
 
     for ds in DATASETS:
