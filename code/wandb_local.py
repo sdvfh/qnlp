@@ -1,33 +1,39 @@
-import pickle
+from __future__ import annotations
+
+import json
+import time
 from pathlib import Path
-from time import sleep
 
 import wandb
 
-api = wandb.Api(timeout=360)
-runs = api.runs("svf/qnlp2")
+API_PATH = "svf/qnlp2"
+PER_PAGE = 25
+SLEEP_BETWEEN = 0.4  # alivia rate-limit
+OUT_DIR = Path(__file__).with_suffix("").parent / "runs_json"
+OUT_DIR.mkdir(exist_ok=True)
 
-history = []
-for i, run in enumerate(runs):
-    print(i)
+api = wandb.Api(
+    timeout=120
+)  # timeout maior ajuda em links instáveis :contentReference[oaicite:4]{index=4}
+runs = api.runs(API_PATH, per_page=PER_PAGE)
+
+for run in runs:  # paginação natural
+    json_path = OUT_DIR / f"{run.id}.json"
+    if json_path.exists():  # já baixei? pula
+        continue
+
     summary = dict(run.summary)
-    if "_wandb" in summary:
-        summary.pop("_wandb")
-    if "roc_table" in summary:
-        summary.pop("roc_table")
-    history.append(
-        {
-            "project": run.project,
-            "entity": run.entity,
-            "id": run.id,
-            "config": run.config,
-            "summary": summary,
-        }
-    )
-    sleep(0.2)
+    for key in ("_wandb", "roc_table"):
+        summary.pop(key, None)
 
-root = Path(__file__).parent.parent
-dataset_folder = root / "results"
+    payload = {
+        "id": run.id,
+        "entity": run.entity,
+        "project": run.project,
+        "config": dict(run.config),
+        "summary": summary,
+    }
+    with json_path.open("w", encoding="utf-8") as fp:
+        json.dump(payload, fp, ensure_ascii=False, indent=2)
 
-with open(str(dataset_folder / "summary.pkl"), "wb") as f:
-    pickle.dump(history, f)
+    time.sleep(SLEEP_BETWEEN)
