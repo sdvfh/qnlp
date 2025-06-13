@@ -1,8 +1,10 @@
 """
 Scatter: entanglement × expressability × F1  (Y em escala log)
++ inset externo com zoom na região:
+      • entanglement  ∈ [0.72, Xmax]
+      • expressability ∈ [1 × 10-3, 1 × 10-2]
 
-• Apenas o ponto (circuito 14, n_layers = 10) recebe rótulo “14”.
-• Demais pontos aparecem sem texto.
+Somente o circuito “14 (L = 10)” recebe rótulo.
 """
 
 from __future__ import annotations
@@ -13,9 +15,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.transforms import offset_copy
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 from utils import models, read_summary
 
 
+# ─────────────────────────  utilitário rótulo “14” ──────────────────────────
 def place_label(
     ax,
     x,
@@ -24,46 +28,37 @@ def place_label(
     others_x,
     others_y,
     offsets=((10, -6), (8, 6), (-8, 6), (-8, -6), (8, 0), (-8, 0), (0, 8), (0, -8)),
-    min_sep=10,
+    min_sep=20,
 ):
-    """
-    Coloca `text` próximo ao ponto (x,y) tentando evitar outros pontos.
-    offsets  : lista de deslocamentos candidatos em *points* (dx, dy)
-    min_sep  : separação mínima em *points* para considerar posição livre
-    """
-    # converte coords dos outros pontos para display coords
+    """Escolhe deslocamento que não colida com outros pontos."""
     xy_disp = ax.transData.transform(np.column_stack([others_x, others_y]))
-    x_disp, y_disp = xy_disp[:, 0], xy_disp[:, 1]
+    xd, yd = xy_disp[:, 0], xy_disp[:, 1]
 
     for dx, dy in offsets:
-        txt_offset = offset_copy(
-            ax.transData, fig=ax.figure, x=dx, y=dy, units="points"
-        )
-        # posição do texto em display coords
-        x_t, y_t = txt_offset.transform((x, y))
-        # distâncias para cada outro ponto em points
-        d = np.hypot(x_disp - x_t, y_disp - y_t)
-        if (d > min_sep).all():
+        off = offset_copy(ax.transData, fig=ax.figure, x=dx, y=dy, units="points")
+        xt, yt = off.transform((x, y))
+        if (np.hypot(xd - xt, yd - yt) > min_sep).all():
             ax.annotate(
                 text,
                 xy=(x, y),
                 xytext=(dx, dy),
                 textcoords="offset points",
+                fontsize=8,
                 ha="center",
                 va="center",
-                fontsize=8,
             )
             return
-    # fallback: coloca no primeiro offset
+
+    # fallback
     dx, dy = offsets[0]
     ax.annotate(
         text,
         xy=(x, y),
         xytext=(dx, dy),
         textcoords="offset points",
+        fontsize=8,
         ha="center",
         va="center",
-        fontsize=8,
         arrowprops={
             "arrowstyle": "-",
             "color": "gray",
@@ -74,38 +69,35 @@ def place_label(
     )
 
 
-# ─────────────────────────── parâmetros ──────────────────────────────
+# ───────────────────────────── dados ─────────────────────────────────
 CSV_MEASURES = Path("../../results/measures_all.csv")
-DATASET_FILTER = "chatgpt_easy"
-EPS = 1e-3  # evita log(0)
-ID_TO_LABEL = 14  # circuito a rotular
-LAYER_TO_LABEL = 10  # layer correspondente
+DATASET = "sst"
+EPS = 1e-3
 
-# ──────────────────────── carregar dados ─────────────────────────────
 df_meas = pd.read_csv(CSV_MEASURES)
 df_meas["model"] = df_meas["model"].replace(models)
 
 df_runs = read_summary()
-df_runs = df_runs[df_runs["dataset"] == DATASET_FILTER]
+df_runs = df_runs[df_runs["dataset"] == DATASET]
 
-df_full = df_meas.merge(
-    df_runs[["model_classifier", "n_layers", "f1"]],
-    left_on=["model", "n_layers"],
-    right_on=["model_classifier", "n_layers"],
-    how="inner",
-).drop(columns="model_classifier")
-
-df_avg = df_full.groupby(["model", "n_layers"], as_index=False, sort=False).agg(
-    ent=("ent", "mean"), exp=("exp", "mean"), f1=("f1", "mean")
+df = (
+    df_meas.merge(
+        df_runs[["model_classifier", "n_layers", "f1"]],
+        left_on=["model", "n_layers"],
+        right_on=["model_classifier", "n_layers"],
+        how="inner",
+    )
+    .drop(columns="model_classifier")
+    .groupby(["model", "n_layers"], as_index=False, sort=False)
+    .agg(ent=("ent", "mean"), exp=("exp", "mean"), f1=("f1", "mean"))
 )
 
-# ─────────────────────────── scatter ─────────────────────────────────
-MARKERS = {1: "o", 10: "^"}
+# ─────────────────────── figura principal ───────────────────────────
 fig, ax = plt.subplots(figsize=(6, 5), dpi=300)
-texts = []
 
+MARKERS = {1: "o", 10: "^"}
 for n_layer, mk in MARKERS.items():
-    sub = df_avg[df_avg["n_layers"] == n_layer]
+    sub = df[df["n_layers"] == n_layer]
     ax.scatter(
         sub["ent"],
         sub["exp"].clip(lower=EPS),
@@ -118,38 +110,65 @@ for n_layer, mk in MARKERS.items():
         zorder=2,
     )
 
-    mask_lbl = (df_avg["model"] == 14) & (df_avg["n_layers"] == 10)
-    if mask_lbl.any():
-        row = df_avg.loc[mask_lbl].iloc[0]
-        x0, y0 = row["ent"], max(row["exp"], EPS)
+# rótulo circuito 14, layer 10
+mask14 = (df["model"] == 14) & (df["n_layers"] == 10)
+if mask14.any():
+    row = df.loc[mask14].iloc[0]
+    place_label(
+        ax,
+        row["ent"],
+        max(row["exp"], EPS),
+        "14",
+        df.loc[~mask14, "ent"].values,
+        df.loc[~mask14, "exp"].clip(lower=EPS).values,
+    )
 
-        # arrays com as coordenadas dos OUTROS pontos
-        others = df_avg[~mask_lbl]
-        place_label(
-            ax,
-            x0,
-            y0,
-            "14",
-            others["ent"].values,
-            others["exp"].clip(lower=EPS).values,
-            min_sep=20,
-        )
-
-# ───────────────────── estética geral ────────────────────────────────
-
+# estética eixo principal
 ax.set_yscale("log")
 ax.set_xlabel("Entanglement (média)")
 ax.set_ylabel("Expressability (média, log)")
-ax.set_title("Circuit landscape — chatgpt_easy")
-
-sm = plt.cm.ScalarMappable(
-    cmap="viridis", norm=plt.Normalize(df_avg["f1"].min(), df_avg["f1"].max())
-)
-cbar = fig.colorbar(sm, ax=ax)
-cbar.set_label("F1-score (média)")
-
-ax.legend(title="n_layers", frameon=True)
+ax.set_title(f"Circuit landscape — {DATASET}")
 ax.grid(True, linestyle="--", linewidth=0.6, alpha=0.5)
+ax.legend(title="n_layers")
 
-plt.tight_layout()
-plt.show()  # ou fig.savefig("scatter_label14.pdf", bbox_inches="tight")
+# colorbar
+sm = plt.cm.ScalarMappable(
+    cmap="viridis", norm=plt.Normalize(df["f1"].min(), df["f1"].max())
+)
+fig.colorbar(sm, ax=ax).set_label("F1-score (média)")
+
+# ──────────────────────── inset externo (zoom) ───────────────────────
+x_min, x_max = 0.72, 0.85
+y_min, y_max = 0.22 * 1e-2, 0.6 * 1e-2  # [10⁻3, 10⁻2]
+
+axins = inset_axes(
+    ax,
+    width="120%",
+    height="120%",
+    bbox_to_anchor=(1.05, -0.5, 0.35, 0.35),  # “fora” à direita-abaixo
+    bbox_transform=ax.transAxes,
+    loc="lower left",
+    borderpad=0,
+)
+axins.set_yscale("log")
+axins.set_xlim(x_min, x_max)
+axins.set_ylim(y_min, y_max)
+
+for n_layer, mk in MARKERS.items():
+    sub = df[df["n_layers"] == n_layer]
+    axins.scatter(
+        sub["ent"],
+        sub["exp"].clip(lower=EPS),
+        c=sub["f1"],
+        cmap="viridis",
+        marker=mk,
+        s=80,
+        edgecolors="black",
+    )
+
+mark_inset(ax, axins, loc1=3, loc2=4, fc="none", ec="black", ls="--", lw=0.8)
+
+# ─────────────── layout: sem tight_layout para não cortar inset ─────
+# fig.subplots_adjust(right=0.78)       # deixa espaço p/ inset fora
+fig.subplots_adjust(bottom=0.30, right=0.78)  # margem inferior maior
+plt.show()
