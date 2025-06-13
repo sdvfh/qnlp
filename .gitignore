@@ -165,4 +165,4 @@ data/
 
 code/wandb/
 
-code/runs_json/
+results/runs_json/
