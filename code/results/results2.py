@@ -52,13 +52,6 @@ def place_label(
                 ha="center",
                 va="center",
                 fontsize=8,
-                arrowprops={
-                    "arrowstyle": "-",
-                    "color": "gray",
-                    "lw": 0.5,
-                    "shrinkA": 2,
-                    "shrinkB": 2,
-                },
             )
             return
     # fallback: coloca no primeiro offset
