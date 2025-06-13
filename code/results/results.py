@@ -157,7 +157,7 @@ def plot_panel(
 
         # × : layers
         res = pairwise_wilcoxon_holm(piv, alpha=alpha)
-        for _, row in res[~res["reject"]].iterrows():  # noqa: F841
+        for _, row in res[~res["reject"]].iterrows():
             (p0, l0), (p1, l1) = row["i"], row["j"]
             if p0 == p1 and l0 != l1:
                 y0, y1 = pos_map[(p0, l0)][r], pos_map[(p1, l1)][r]
@@ -180,7 +180,7 @@ def plot_panel(
                 continue
             sub = piv.xs(layer, level=1, axis=1)
             res_p = pairwise_wilcoxon_holm(sub, alpha=alpha)
-            for _, row in res_p[~res_p["reject"]].iterrows():  # noqa: F841
+            for _, row in res_p[~res_p["reject"]].iterrows():
                 p0, p1 = row["i"], row["j"]
                 y0, y1 = pos_map[(p0, layer)][r], pos_map[(p1, layer)][r]
                 m0, m1 = piv[(p0, layer)].median(), piv[(p1, layer)].median()
@@ -262,10 +262,14 @@ def generate_figure(
     ax_t.set_title("Modelos 3 e 33")
     ax_b.set_title("Demais Modelos")
 
-    handles_primary = [
-        Patch(facecolor=color_map[p], label=attr_label_fmt.format(p))
-        for p in primary_vals
-    ]
+    # ─────────────── legend handles (condicional) ────────────────
+    handles_primary = []
+    if attr_label_fmt:  # só cria se houver algo para mostrar
+        handles_primary = [
+            Patch(facecolor=color_map[p], label=attr_label_fmt.format(p))
+            for p in primary_vals
+        ]
+
     handles_layers = [
         Patch(
             facecolor="white",
@@ -275,6 +279,7 @@ def generate_figure(
         )
         for layer in layers
     ]
+
     x_handle = Line2D(
         [],
         [],
@@ -284,10 +289,18 @@ def generate_figure(
         markersize=12,
         label="Sem diferença entre camadas",
     )
-    arrow_handle = Line2D([], [], color="#0b31bf", lw=1.5, label=arrow_label)
+
+    handles = handles_layers + [x_handle]  # base: sempre mostramos camadas + “x”
+
+    if handles_primary:  # insere no início para manter ordem intuitiva
+        handles = handles_primary + handles
+
+    if arrow_label:  # seta só se houver mais de um grupo
+        arrow_handle = Line2D([], [], color="#0b31bf", lw=1.5, label=arrow_label)
+        handles.append(arrow_handle)
 
     ax_b.legend(
-        handles=handles_primary + handles_layers + [x_handle, arrow_handle],
+        handles=handles,
         title="Legenda",
         loc="lower left",
         fontsize="small",
@@ -374,22 +387,26 @@ if __name__ == "__main__":
         & (df_final["model_classifier"].isin(MODELS_ALL))
     ]
     cmap_final = {TARGET: "#1f77b4"}  # uma cor apenas
+    # datasets que precisam de um batch_size fixo
+    BATCH_OVERRIDE = {"sst": 512}
 
     for ds in DATASETS_FINAL:
-        if ds == "sst":
-            df_final_figura = df_final[
-                (df_final["dataset"] == ds) & (df_final["batch_size"] == 512)
-            ]
-        else:
-            df_final_figura = df_final[df_final["dataset"] == ds]
+        # sempre filtra pelo dataset desejado
+        mask = df_final["dataset"].eq(ds)
+
+        # aplica override de batch_size, se houver
+        if ds in BATCH_OVERRIDE:
+            mask &= df_final["batch_size"].eq(BATCH_OVERRIDE[ds])
+
+        df_final_figura = df_final[mask]
         generate_figure(
             df=df_final_figura,
             dataset=ds,
             primary_col="model_transformer",  # coluna real, mas 1 valor fixo
             primary_vals=[TARGET],
             color_map=cmap_final,
-            arrow_label="",  # seta não aparece
-            attr_label_fmt="",  # evita label redundante
+            arrow_label="",  # ← não mostra seta entre grupos
+            attr_label_fmt="",  # ← não mostra patch da cor única
             out_name="f1_layers",
             layers=layers,
             hatch_map=hatch_map,
