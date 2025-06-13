@@ -360,8 +360,7 @@ if __name__ == "__main__":
         )
 
     # ---------- C) análise final: cor única, camadas 1 vs 10 -------------------
-    # DATASETS_FINAL = (*DATASETS, "sst")
-    DATASETS_FINAL = (*DATASETS,)
+    DATASETS_FINAL = (*DATASETS, "sst")
     MODELS_ALL = (
         classical_models
         + quantum_models
@@ -377,8 +376,14 @@ if __name__ == "__main__":
     cmap_final = {TARGET: "#1f77b4"}  # uma cor apenas
 
     for ds in DATASETS_FINAL:
+        if ds == "sst":
+            df_final_figura = df_final[
+                (df_final["dataset"] == ds) & (df_final["batch_size"] == 512)
+            ]
+        else:
+            df_final_figura = df_final[df_final["dataset"] == ds]
         generate_figure(
-            df=df_final[df_final["dataset"] == ds],
+            df=df_final_figura,
             dataset=ds,
             primary_col="model_transformer",  # coluna real, mas 1 valor fixo
             primary_vals=[TARGET],
