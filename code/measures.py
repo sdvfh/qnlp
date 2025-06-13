@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pandas as pd
 from models import (
     AnsatzEnt1,
@@ -18,7 +20,8 @@ from models import (
     AnsatzSingleRotZ,
 )
 
-models = {
+# ────────────────────────────── parâmetros ────────────────────────────────────
+MODELS = {
     "stateprep": AnsatzMottoten,
     "singlerotx": AnsatzSingleRotX,
     "singleroty": AnsatzSingleRotY,
@@ -36,12 +39,23 @@ models = {
     "ent3": AnsatzEnt3,
     "ent4": AnsatzEnt4,
 }
-n_layers = {1: {}, 10: {}}
-measures = {}
-for with_state_prep in [False, True]:
-    for n_layer in n_layers:
-        for model in models:
-            qvc = models[model](
+
+N_LAYERS = [1, 10]
+WITH_STATE_PREP = [False, True]
+
+RESULTS_DIR = Path(__file__).with_suffix("").parent.parent / "results"
+RESULTS_DIR.mkdir(exist_ok=True, parents=True)
+
+# ────────────────────────────── execução ──────────────────────────────────────
+rows = []
+
+for state_prep in WITH_STATE_PREP:
+    for n_layer in N_LAYERS:
+        for name, model_cls in MODELS.items():
+            # ▸ condição especial para o AnsatzMottoten
+            if name == "stateprep" and not (n_layer == 1 and state_prep is False):
+                continue  # pula todas as outras combinações
+            qvc = model_cls(
                 n_layers=n_layer,
                 max_iter=40,
                 batch_size=20,
@@ -49,13 +63,24 @@ for with_state_prep in [False, True]:
                 n_qubits_=4,
             )
             exp, ent = qvc.compute_measures(
-                n_bins=75, n=5000, to_plot=False, with_state_prep=with_state_prep
+                n_bins=75, n=5000, to_plot=False, with_state_prep=state_prep
             )
-            measures[model] = {"exp": exp, "ent": ent}
-            print(f"With {n_layer} layers, model {model}: {measures[model]}")
-        n_layers[n_layer] = measures
-        if with_state_prep:
-            filename = f"measures_{n_layer}_layer_with_state_prep.csv"
-        else:
-            filename = f"measures_{n_layer}_layer.csv"
-        pd.DataFrame(measures).to_csv(filename, index=False)
+            rows.append(
+                {
+                    "model": name,
+                    "n_layers": n_layer,
+                    "with_state_prep": state_prep,
+                    "exp": exp,
+                    "ent": ent,
+                }
+            )
+            print(
+                f"[layers={n_layer} | stateprep={state_prep}] {name}: "
+                f"exp={exp:.4f}, ent={ent:.4f}"
+            )
+
+# ────────────────────────────── salvamento ───────────────────────────────────
+df = pd.DataFrame(rows)
+out_file = RESULTS_DIR / "measures_all.csv"
+df.to_csv(out_file, index=False)
+print(f"\n✔️  Resultados consolidados salvos em: {out_file.resolve()}")
