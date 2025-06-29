@@ -129,15 +129,15 @@ sm = plt.cm.ScalarMappable(
 )
 fig.colorbar(sm, ax=ax).set_label("F1-score (média)")
 
-# ──────────────────────── inset externo (zoom) ───────────────────────
+# ──────────────────────── inset externo (zoom 1) ───────────────────────
 x_min, x_max = 0.77, 0.84
-y_min, y_max = 0.22 * 1e-2, 0.6 * 1e-2  # [10⁻3, 10⁻2]
+y_min, y_max = 0.20 * 1e-2, 0.6 * 1e-2  # [10⁻3, 10⁻2]
 
 axins = inset_axes(
     ax,
     width="120%",
     height="120%",
-    bbox_to_anchor=(1.05, -0.6, 0.35, 0.35),  # “fora” à direita-abaixo
+    bbox_to_anchor=(0.75, -0.65, 0.35, 0.35),  # “fora” à direita-abaixo
     bbox_transform=ax.transAxes,
     loc="lower left",
     borderpad=0,
@@ -160,7 +160,6 @@ for n_layer, mk in MARKERS.items():
 
 mark_inset(ax, axins, loc1=1, loc2=2, fc="none", ec="black", ls="--", lw=0.8)
 
-
 # ──────────── ALTERAÇÃO: rótulo da(s) bolinha(s) no inset ────────────
 mask_inset_circle = (
     (df["n_layers"] == 1)  # bolinhas
@@ -180,8 +179,39 @@ if mask_inset_circle.any():
             others["ent"].values,
             others["exp"].clip(lower=EPS).values,
         )
+
+# ──────────────────────── inset externo (zoom2) ───────────────────────
+x_min, x_max = 0.37, 0.395
+y_min, y_max = 1 * 1e-2, 0.5 * 1e-0
+
+axins2 = inset_axes(
+    ax,
+    width="120%",
+    height="120%",
+    bbox_to_anchor=(0.05, -0.65, 0.35, 0.35),  # “fora” à direita-abaixo
+    bbox_transform=ax.transAxes,
+    loc="lower left",
+    borderpad=0,
+)
+axins2.set_yscale("log")
+axins2.set_ylim(y_min, y_max)
+axins2.set_xlim(x_min, x_max)
+mark_inset(ax, axins2, loc1=1, loc2=2, fc="none", ec="black", ls="--", lw=0.8)
+
+for n_layer, mk in MARKERS.items():
+    sub = df[df["n_layers"] == n_layer]
+    axins2.scatter(
+        sub["ent"],
+        sub["exp"].clip(lower=EPS),
+        c=sub["f1"],
+        cmap="viridis",
+        marker=mk,
+        s=80,
+        edgecolors="black",
+    )
+
 # ─────────────────────────────────────────────────────────────────────
 
 # ─────────────── layout: sem tight_layout para não cortar inset ─────
-fig.subplots_adjust(bottom=0.40, right=0.78)  # margem inferior maior
+fig.subplots_adjust(bottom=0.40, right=1)  # margem inferior maior
 plt.show()
