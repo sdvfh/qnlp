@@ -76,6 +76,7 @@ EPS = 1e-3
 
 df_meas = pd.read_csv(CSV_MEASURES)
 df_meas["model"] = df_meas["model"].replace(models)
+df_meas = df_meas[df_meas["with_state_prep"]]
 
 df_runs = read_summary()
 df_runs = df_runs[df_runs["dataset"] == DATASET]
@@ -106,7 +107,7 @@ for n_layer, mk in MARKERS.items():
         marker=mk,
         s=80,
         edgecolors="black",
-        label=f"{n_layer} layer{'s' if n_layer > 1 else ''}",
+        label=f"{n_layer} camada{'s' if n_layer > 1 else ''}",
         zorder=2,
     )
 
@@ -125,11 +126,11 @@ if mask14.any():
 
 # estética eixo principal
 ax.set_yscale("log")
-ax.set_xlabel("Entanglement (média)")
-ax.set_ylabel("Expressability (média, log)")
-ax.set_title(f"Circuit landscape — {DATASET}")
+ax.set_xlabel("Emaranhamento (média)")
+ax.set_ylabel("Expressabilidade (média, log)")
+ax.set_title(f"Panorama das medidas — {DATASET}")
 ax.grid(True, linestyle="--", linewidth=0.6, alpha=0.5)
-ax.legend(title="n_layers")
+ax.legend(title="Legenda")
 
 # colorbar
 sm = plt.cm.ScalarMappable(
@@ -138,14 +139,14 @@ sm = plt.cm.ScalarMappable(
 fig.colorbar(sm, ax=ax).set_label("F1-score (média)")
 
 # ──────────────────────── inset externo (zoom) ───────────────────────
-x_min, x_max = 0.72, 0.85
+x_min, x_max = 0.77, 0.84
 y_min, y_max = 0.22 * 1e-2, 0.6 * 1e-2  # [10⁻3, 10⁻2]
 
 axins = inset_axes(
     ax,
     width="120%",
     height="120%",
-    bbox_to_anchor=(1.05, -0.5, 0.35, 0.35),  # “fora” à direita-abaixo
+    bbox_to_anchor=(1.05, -0.6, 0.35, 0.35),  # “fora” à direita-abaixo
     bbox_transform=ax.transAxes,
     loc="lower left",
     borderpad=0,
@@ -166,9 +167,9 @@ for n_layer, mk in MARKERS.items():
         edgecolors="black",
     )
 
-mark_inset(ax, axins, loc1=3, loc2=4, fc="none", ec="black", ls="--", lw=0.8)
+mark_inset(ax, axins, loc1=1, loc2=2, fc="none", ec="black", ls="--", lw=0.8)
 
 # ─────────────── layout: sem tight_layout para não cortar inset ─────
 # fig.subplots_adjust(right=0.78)       # deixa espaço p/ inset fora
-fig.subplots_adjust(bottom=0.30, right=0.78)  # margem inferior maior
+fig.subplots_adjust(bottom=0.40, right=0.78)  # margem inferior maior
 plt.show()
