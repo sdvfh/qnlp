@@ -10,7 +10,7 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 from utils import models, read_summary
 
 
-# ─────────────────────────  utilitário rótulo “14” ──────────────────────────
+# ─────────────────────────  utilitário p/ rótulos ──────────────────────────
 def place_label(
     ax,
     x,
@@ -18,10 +18,15 @@ def place_label(
     text,
     others_x,
     others_y,
+    *,
     offsets=((10, -6), (8, 6), (-8, 6), (-8, -6), (8, 0), (-8, 0), (0, 8), (0, -8)),
-    min_sep=20,
+    min_sep=18,
+    fontsize=7,
 ):
-    """Escolhe deslocamento que não colida com outros pontos."""
+    """
+    Coloca 'text' perto de (x, y) tentando não colidir com outros pontos.
+    Não elimina colisão entre textos, mas reduz sobreposição significativa.
+    """
     xy_disp = ax.transData.transform(np.column_stack([others_x, others_y]))
     xd, yd = xy_disp[:, 0], xy_disp[:, 1]
 
@@ -34,20 +39,20 @@ def place_label(
                 xy=(x, y),
                 xytext=(dx, dy),
                 textcoords="offset points",
-                fontsize=8,
+                fontsize=fontsize,
                 ha="center",
                 va="center",
             )
             return
 
-    # fallback
+    # fallback – seta flecha-reta fina
     dx, dy = offsets[0]
     ax.annotate(
         text,
         xy=(x, y),
         xytext=(dx, dy),
         textcoords="offset points",
-        fontsize=8,
+        fontsize=fontsize,
         ha="center",
         va="center",
         arrowprops={
@@ -84,6 +89,21 @@ df = (
     .agg(ent=("ent", "mean"), exp=("exp", "mean"), f1=("f1", "mean"))
 )
 
+# ─────────────── intervalos dos dois insets (definidos antes p/ máscaras) ──
+# inset 1 (direita, valores baixos de exp)
+x1_min, x1_max = 0.77, 0.84
+y1_min, y1_max = 0.25e-2, 0.5e-2
+
+# inset 2 (esquerda, cluster perto de ent ≃ 0.38)
+x2_min, x2_max = 0.381, 0.387
+y2_min, y2_max = 1e-2, 0.5e0
+
+# máscaras de pertencimento a cada inset
+mask_inset1 = df["ent"].between(x1_min, x1_max) & df["exp"].between(y1_min, y1_max)
+mask_inset2 = df["ent"].between(x2_min, x2_max) & df["exp"].between(y2_min, y2_max)
+
+mask_main_labels = ~(mask_inset1 | mask_inset2)  # apenas fora dos insets
+
 # ─────────────────────── figura principal ───────────────────────────
 fig, ax = plt.subplots(figsize=(6, 5), dpi=300)
 
@@ -102,17 +122,18 @@ for n_layer, mk in MARKERS.items():
         zorder=2,
     )
 
-# rótulo circuito 14, layer 10
-mask14 = (df["model"] == 14) & (df["n_layers"] == 10)
-if mask14.any():
-    row = df.loc[mask14].iloc[0]
+# rótulos SOMENTE dos pontos fora dos insets
+for idx, row in df[mask_main_labels].iterrows():
+    others_x = df.loc[df.index != idx, "ent"].values
+    others_y = df.loc[df.index != idx, "exp"].clip(lower=EPS).values
     place_label(
         ax,
         row["ent"],
         max(row["exp"], EPS),
-        "14",
-        df.loc[~mask14, "ent"].values,
-        df.loc[~mask14, "exp"].clip(lower=EPS).values,
+        str(int(row["model"])),
+        others_x,
+        others_y,
+        fontsize=7,
     )
 
 # estética eixo principal
@@ -129,22 +150,19 @@ sm = plt.cm.ScalarMappable(
 )
 fig.colorbar(sm, ax=ax).set_label("F1-score (média)")
 
-# ──────────────────────── inset externo (zoom 1) ───────────────────────
-x_min, x_max = 0.77, 0.84
-y_min, y_max = 0.20 * 1e-2, 0.6 * 1e-2  # [10⁻3, 10⁻2]
-
+# ──────────────────────── inset 1 (zoom direita) ───────────────────────
 axins = inset_axes(
     ax,
     width="120%",
     height="120%",
-    bbox_to_anchor=(0.75, -0.65, 0.35, 0.35),  # “fora” à direita-abaixo
+    bbox_to_anchor=(0.75, -0.65, 0.35, 0.35),
     bbox_transform=ax.transAxes,
     loc="lower left",
     borderpad=0,
 )
 axins.set_yscale("log")
-axins.set_xlim(x_min, x_max)
-axins.set_ylim(y_min, y_max)
+axins.set_xlim(x1_min, x1_max)
+axins.set_ylim(y1_min, y1_max)
 
 for n_layer, mk in MARKERS.items():
     sub = df[df["n_layers"] == n_layer]
@@ -158,45 +176,35 @@ for n_layer, mk in MARKERS.items():
         edgecolors="black",
     )
 
+# rótulos no inset 1
+sub1 = df[mask_inset1]
+for idx, row in sub1.iterrows():
+    others = sub1.drop(idx)
+    place_label(
+        axins,
+        row["ent"],
+        max(row["exp"], EPS),
+        str(int(row["model"])),
+        others["ent"].values,
+        others["exp"].clip(lower=EPS).values,
+        fontsize=7,
+    )
+
 mark_inset(ax, axins, loc1=1, loc2=2, fc="none", ec="black", ls="--", lw=0.8)
 
-# ──────────── ALTERAÇÃO: rótulo da(s) bolinha(s) no inset ────────────
-mask_inset_circle = (
-    (df["n_layers"] == 1)  # bolinhas
-    & (df["ent"].between(x_min, x_max))
-    & (df["exp"].between(y_min, y_max))
-)
-
-if mask_inset_circle.any():
-    sub_circles = df.loc[mask_inset_circle]
-    for idx, row in sub_circles.iterrows():
-        others = sub_circles.drop(idx)
-        place_label(
-            axins,
-            row["ent"],
-            max(row["exp"], EPS),
-            str(int(row["model"])),  # ID do circuito
-            others["ent"].values,
-            others["exp"].clip(lower=EPS).values,
-        )
-
-# ──────────────────────── inset externo (zoom2) ───────────────────────
-x_min, x_max = 0.37, 0.395
-y_min, y_max = 1 * 1e-2, 0.5 * 1e-0
-
+# ──────────────────────── inset 2 (zoom esquerda) ───────────────────────
 axins2 = inset_axes(
     ax,
     width="120%",
     height="120%",
-    bbox_to_anchor=(0.05, -0.65, 0.35, 0.35),  # “fora” à direita-abaixo
+    bbox_to_anchor=(0.05, -0.65, 0.35, 0.35),
     bbox_transform=ax.transAxes,
     loc="lower left",
     borderpad=0,
 )
 axins2.set_yscale("log")
-axins2.set_ylim(y_min, y_max)
-axins2.set_xlim(x_min, x_max)
-mark_inset(ax, axins2, loc1=1, loc2=2, fc="none", ec="black", ls="--", lw=0.8)
+axins2.set_xlim(x2_min, x2_max)
+axins2.set_ylim(y2_min, y2_max)
 
 for n_layer, mk in MARKERS.items():
     sub = df[df["n_layers"] == n_layer]
@@ -210,8 +218,22 @@ for n_layer, mk in MARKERS.items():
         edgecolors="black",
     )
 
-# ─────────────────────────────────────────────────────────────────────
+# rótulos no inset 2
+sub2 = df[mask_inset2]
+for idx, row in sub2.iterrows():
+    others = sub2.drop(idx)
+    place_label(
+        axins2,
+        row["ent"],
+        max(row["exp"], EPS),
+        str(int(row["model"])),
+        others["ent"].values,
+        others["exp"].clip(lower=EPS).values,
+        fontsize=7,
+    )
+
+mark_inset(ax, axins2, loc1=1, loc2=2, fc="none", ec="black", ls="--", lw=0.8)
 
 # ─────────────── layout: sem tight_layout para não cortar inset ─────
-fig.subplots_adjust(bottom=0.40, right=1)  # margem inferior maior
+fig.subplots_adjust(bottom=0.40, right=1)  # espaço p/ insets
 plt.show()
