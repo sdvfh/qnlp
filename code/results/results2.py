@@ -1,12 +1,3 @@
-"""
-Scatter: entanglement × expressability × F1  (Y em escala log)
-+ inset externo com zoom na região:
-      • entanglement  ∈ [0.72, Xmax]
-      • expressability ∈ [1 × 10-3, 1 × 10-2]
-
-Somente o circuito “14 (L = 10)” recebe rótulo.
-"""
-
 from __future__ import annotations
 
 from pathlib import Path
@@ -169,7 +160,28 @@ for n_layer, mk in MARKERS.items():
 
 mark_inset(ax, axins, loc1=1, loc2=2, fc="none", ec="black", ls="--", lw=0.8)
 
+
+# ──────────── ALTERAÇÃO: rótulo da(s) bolinha(s) no inset ────────────
+mask_inset_circle = (
+    (df["n_layers"] == 1)  # bolinhas
+    & (df["ent"].between(x_min, x_max))
+    & (df["exp"].between(y_min, y_max))
+)
+
+if mask_inset_circle.any():
+    sub_circles = df.loc[mask_inset_circle]
+    for idx, row in sub_circles.iterrows():
+        others = sub_circles.drop(idx)
+        place_label(
+            axins,
+            row["ent"],
+            max(row["exp"], EPS),
+            str(int(row["model"])),  # ID do circuito
+            others["ent"].values,
+            others["exp"].clip(lower=EPS).values,
+        )
+# ─────────────────────────────────────────────────────────────────────
+
 # ─────────────── layout: sem tight_layout para não cortar inset ─────
-# fig.subplots_adjust(right=0.78)       # deixa espaço p/ inset fora
 fig.subplots_adjust(bottom=0.40, right=0.78)  # margem inferior maior
 plt.show()
