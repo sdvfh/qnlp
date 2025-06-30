@@ -19,13 +19,13 @@ def place_label(
     others_x,
     others_y,
     *,
-    offsets=((10, -6), (8, 6), (-8, 6), (-8, -6), (8, 0), (-8, 0), (0, 8), (0, -8)),
-    min_sep=18,
+    offsets,
+    min_sep=1,
     fontsize=7,
 ):
     """
     Coloca 'text' perto de (x, y) tentando não colidir com outros pontos.
-    Não elimina colisão entre textos, mas reduz sobreposição significativa.
+    Percorre a lista `offsets` (dx, dy em points) na ordem fornecida.
     """
     xy_disp = ax.transData.transform(np.column_stack([others_x, others_y]))
     xd, yd = xy_disp[:, 0], xy_disp[:, 1]
@@ -45,7 +45,7 @@ def place_label(
             )
             return
 
-    # fallback – seta flecha-reta fina
+    # fallback – desenha flecha fininha usando o 1.º deslocamento
     dx, dy = offsets[0]
     ax.annotate(
         text,
@@ -63,6 +63,10 @@ def place_label(
             "shrinkB": 2,
         },
     )
+
+
+# deslocamentos padrão (mantêm comportamento dos demais rótulos)
+OFFSETS_DEFAULT = [(9, -5)]
 
 
 # ───────────────────────────── dados ─────────────────────────────────
@@ -89,20 +93,18 @@ df = (
     .agg(ent=("ent", "mean"), exp=("exp", "mean"), f1=("f1", "mean"))
 )
 
-# ─────────────── intervalos dos dois insets (definidos antes p/ máscaras) ──
-# inset 1 (direita, valores baixos de exp)
-x1_min, x1_max = 0.77, 0.84
-y1_min, y1_max = 0.25e-2, 0.5e-2
+# ─────────── intervalos e máscaras p/ insets ───────────
+x1_min, x1_max = 0.784, 0.83  # zoom direita
+y1_min, y1_max = 0.265e-2, 0.47e-2
 
-# inset 2 (esquerda, cluster perto de ent ≃ 0.38)
-x2_min, x2_max = 0.381, 0.387
-y2_min, y2_max = 1e-2, 0.5e0
+x2_min, x2_max = 0.381, 0.3865  # zoom esquerda
+y2_min, y2_max = 1.2e-2, 0.4e0
 
-# máscaras de pertencimento a cada inset
 mask_inset1 = df["ent"].between(x1_min, x1_max) & df["exp"].between(y1_min, y1_max)
 mask_inset2 = df["ent"].between(x2_min, x2_max) & df["exp"].between(y2_min, y2_max)
 
-mask_main_labels = ~(mask_inset1 | mask_inset2)  # apenas fora dos insets
+# rótulos no gráfico principal: tudo fora dos insets, exceto o triângulo 14
+mask_main_labels = ~(mask_inset1 | mask_inset2)
 
 # ─────────────────────── figura principal ───────────────────────────
 fig, ax = plt.subplots(figsize=(6, 5), dpi=300)
@@ -122,7 +124,7 @@ for n_layer, mk in MARKERS.items():
         zorder=2,
     )
 
-# rótulos SOMENTE dos pontos fora dos insets
+# rótulos fora dos insets (padrão)
 for idx, row in df[mask_main_labels].iterrows():
     others_x = df.loc[df.index != idx, "ent"].values
     others_y = df.loc[df.index != idx, "exp"].clip(lower=EPS).values
@@ -133,9 +135,9 @@ for idx, row in df[mask_main_labels].iterrows():
         str(int(row["model"])),
         others_x,
         others_y,
+        offsets=OFFSETS_DEFAULT,
         fontsize=7,
     )
-
 # estética eixo principal
 ax.set_yscale("log")
 ax.set_xlabel("Emaranhamento (média)")
@@ -176,7 +178,7 @@ for n_layer, mk in MARKERS.items():
         edgecolors="black",
     )
 
-# rótulos no inset 1
+# rótulos no zoom direita
 sub1 = df[mask_inset1]
 for idx, row in sub1.iterrows():
     others = sub1.drop(idx)
@@ -187,6 +189,7 @@ for idx, row in sub1.iterrows():
         str(int(row["model"])),
         others["ent"].values,
         others["exp"].clip(lower=EPS).values,
+        offsets=OFFSETS_DEFAULT,
         fontsize=7,
     )
 
@@ -218,7 +221,7 @@ for n_layer, mk in MARKERS.items():
         edgecolors="black",
     )
 
-# rótulos no inset 2
+# rótulos no zoom esquerda
 sub2 = df[mask_inset2]
 for idx, row in sub2.iterrows():
     others = sub2.drop(idx)
@@ -229,11 +232,12 @@ for idx, row in sub2.iterrows():
         str(int(row["model"])),
         others["ent"].values,
         others["exp"].clip(lower=EPS).values,
+        offsets=OFFSETS_DEFAULT,
         fontsize=7,
     )
 
 mark_inset(ax, axins2, loc1=1, loc2=2, fc="none", ec="black", ls="--", lw=0.8)
 
-# ─────────────── layout: sem tight_layout para não cortar inset ─────
-fig.subplots_adjust(bottom=0.40, right=1)  # espaço p/ insets
+# ───────────── layout – mantém espaço p/ insets ─────────────
+fig.subplots_adjust(bottom=0.40, right=1)
 plt.show()
