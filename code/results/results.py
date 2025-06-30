@@ -118,17 +118,31 @@ def plot_panel(
     for y in np.arange(len(classifier_order) + 1) - 0.5:
         ax.axhline(y, color="black", lw=1, zorder=0)
 
-    # boxplots
+    # boxplots ────────────────────────────────────────────────────────
     combos = [(p, layer) for p in primary_vals for layer in layers]
     for i, (p, l) in enumerate(combos):
-        data = [
+
+        # 1) coleta e LIMPA cada vector (remove NaN/±Inf)
+        raw_vecs = [
             df[
                 (df["model_classifier"] == clf)
                 & (df[primary_col] == p)
                 & (df["n_layers"] == l)
-            ]["f1"].values
+            ]["f1"].to_numpy(dtype=float)
             for clf in classifier_order
         ]
+        data: list[np.ndarray] = [v[np.isfinite(v)] for v in raw_vecs]
+
+        # 2) se todos vazios → esse circuito NÃO tem esse n_layers → pule
+        if all(len(v) == 0 for v in data):
+            continue
+
+        # 3) para manter o alinhamento vertical, substitui vetores vazios
+        #    por um valor NaN único; assim o boxplot ignore mas o espaço
+        #    é preservado e não gera path inválido.
+        data = [v if len(v) else np.array([np.nan]) for v in data]
+
+        # 4) cria o boxplot normalmente
         bp = ax.boxplot(
             data,
             positions=positions[i],
@@ -137,14 +151,20 @@ def plot_panel(
             patch_artist=True,
             manage_ticks=False,
             zorder=1,
+            sym=".",
             boxprops={"lw": 1.5},
             whiskerprops={"lw": 1.5},
             capprops={"lw": 1.5},
             medianprops={"lw": 1.5},
         )
-        for box in bp["boxes"]:
-            box.set_facecolor(color_map[p])
-            box.set_hatch(hatch_map[l])
+
+        # 5) aplica cor + hachura apenas nas caixas cujos dados são válidos
+        for box, vec in zip(bp["boxes"], data, strict=True):
+            if np.isnan(vec).all():  # vector vazio substituído
+                box.set_visible(False)  # → oculta a caixa vazia
+            else:
+                box.set_facecolor(color_map[p])
+                box.set_hatch(hatch_map[l])
 
     add_inner_separators(ax, pos_map, primary_vals, layers, len(classifier_order))
 
@@ -235,8 +255,8 @@ def generate_figure(
     fig, (ax_t, ax_b) = plt.subplots(
         2,
         1,
-        figsize=(8, 20),
-        dpi=600,
+        figsize=(6, 10),
+        dpi=300,
         sharex=False,
         gridspec_kw={"height_ratios": [len(orders[0]), len(orders[1])]},
     )
@@ -310,7 +330,7 @@ def generate_figure(
     )
 
     plt.tight_layout()
-    out_path = Path("../../figures") / f"{out_name}_{dataset}.pdf"
+    out_path = Path("../../figures") / f"{out_name}_{dataset}.pgf"
     fig.savefig(out_path, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved: {out_path}")
