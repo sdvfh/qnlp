@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -23,22 +24,11 @@ ZOOMS = [
 ]
 
 
-# --------------------------------------------------------------------- #
-#                        FUNÇÕES AUXILIARES                             #
-# --------------------------------------------------------------------- #
+# --------------------------- FUNÇÕES AUXILIARES --------------------------- #
 def place_label(
-    ax: plt.Axes,
-    x: float,
-    y: float,
-    label: str,
-    xs_others: np.ndarray,
-    ys_others: np.ndarray,
-    *,
-    offsets=OFFSETS,
-    min_sep: float = 1,
-    fontsize: int = 7,
-) -> None:
-    """Anota *label* perto de (x, y) evitando colidir com outros pontos."""
+    ax, x, y, label, xs_others, ys_others, *, offsets=OFFSETS, min_sep=1, fontsize=7
+):
+    """Rótulo que evita colisão grosseira com outros pontos."""
     xd, yd = ax.transData.transform(np.column_stack([xs_others, ys_others])).T
     for dx, dy in offsets:
         off = offset_copy(ax.transData, fig=ax.figure, x=dx, y=dy, units="points")
@@ -46,8 +36,8 @@ def place_label(
         if (np.hypot(xd - xt, yd - yt) > min_sep).all():
             ax.annotate(
                 label,
-                xy=(x, y),
-                xytext=(dx, dy),
+                (x, y),
+                (dx, dy),
                 textcoords="offset points",
                 fontsize=fontsize,
                 ha="center",
@@ -57,8 +47,8 @@ def place_label(
     dx, dy = offsets[0]
     ax.annotate(
         label,
-        xy=(x, y),
-        xytext=(dx, dy),
+        (x, y),
+        (dx, dy),
         textcoords="offset points",
         fontsize=fontsize,
         ha="center",
@@ -67,11 +57,9 @@ def place_label(
     )
 
 
-def scatter_by_layer(ax: plt.Axes, data: pd.DataFrame):
-    """
-    Plota o espalhamento por número de camadas
-    e devolve o primeiro PathCollection (para o colorbar).
-    """
+def scatter_by_layer(ax, data):
+    """Espalhamento por nº de camadas.
+    Devolve o primeiro PathCollection (necessário p/ o colorbar)."""
     sc_main = None
     for n_layers, marker in MARKERS.items():
         sub = data[data["n_layers"] == n_layers]
@@ -87,28 +75,24 @@ def scatter_by_layer(ax: plt.Axes, data: pd.DataFrame):
             zorder=2,
         )
         if sc_main is None:
-            sc_main = sc  # guarda o primeiro PathCollection
+            sc_main = sc
     return sc_main
 
 
-# --------------------------------------------------------------------- #
-#                                MAIN                                   #
-# --------------------------------------------------------------------- #
+# --------------------------------- MAIN ---------------------------------- #
 def plot_dataset(dataset: str) -> None:
-    """Gera e salva a figura para um *dataset*."""
+    """Gera PDF **e** PGF (+ PNG) para um dataset."""
     df_meas = pd.read_csv(CSV_MEASURES)
     df_meas["model"] = df_meas["model"].replace(models)
     df_meas = df_meas[df_meas["with_state_prep"]]
 
-    df_runs = read_summary()
-    df_runs = df_runs[df_runs["dataset"] == dataset]
+    df_runs = read_summary().query("dataset == @dataset")
 
     df = (
         df_meas.merge(
             df_runs[["model_classifier", "n_layers", "f1"]],
             left_on=["model", "n_layers"],
             right_on=["model_classifier", "n_layers"],
-            how="inner",
         )
         .drop(columns="model_classifier")
         .groupby(["model", "n_layers"], as_index=False, sort=False)
@@ -116,60 +100,60 @@ def plot_dataset(dataset: str) -> None:
     )
 
     fig, ax = plt.subplots(figsize=(6, 5), dpi=300)
-    sc_main = scatter_by_layer(ax, df)  # ← capturamos o mappable real
+    sc_main = scatter_by_layer(ax, df)
 
-    # rótulos apenas fora das janelas de zoom
+    # rótulos fora dos zooms
     mask_in_zoom = sum(
-        df["ent"].between(x_min, x_max) & df["exp"].between(y_min, y_max)
-        for x_min, x_max, y_min, y_max, _ in ZOOMS
+        df["ent"].between(x0, x1) & df["exp"].between(y0, y1)
+        for x0, x1, y0, y1, _ in ZOOMS
     ).astype(bool)
-
-    for idx, row in df[~mask_in_zoom].iterrows():
-        others = df.loc[df.index != idx]
+    for _, r in df[~mask_in_zoom].iterrows():
+        others = df.loc[df.index != r.name]
         place_label(
             ax,
-            row["ent"],
-            max(row["exp"], EPS),
-            str(int(row["model"])),
+            r["ent"],
+            max(r["exp"], EPS),
+            str(int(r["model"])),
             others["ent"].values,
             others["exp"].clip(lower=EPS).values,
         )
 
+    # eixo principal
+    safe_title = dataset.replace("_", r"\_").replace("%", r"\%")  # ← escapa LaTeX
     ax.set(
         yscale="log",
         xlabel="Emaranhamento (média)",
         ylabel="Expressabilidade (média, log)",
-        title=f"Panorama das medidas — {dataset}",
+        title=f"Panorama das medidas — {safe_title}",
     )
-    ax.grid(True, linestyle="--", linewidth=0.6, alpha=0.5)
+    ax.grid(True, ls="--", lw=0.6, alpha=0.5)
     ax.legend(title="Legenda")
 
-    # --------- COLORBAR (agora usando o PathCollection real) -----------
+    # colorbar – usa o PathCollection real → gradiente OK em PDF e PGF
     fig.colorbar(sc_main, ax=ax, pad=0.02).set_label("F1-score (média)")
 
-    # --- janelas de zoom --------------------------------------------- #
-    for x_min, x_max, y_min, y_max, bbox in ZOOMS:
+    # janelas de zoom
+    for x0, x1, y0, y1, bbox in ZOOMS:
         axins = inset_axes(
             ax,
-            width="120%",
-            height="120%",
+            "120%",
+            "120%",
             bbox_to_anchor=bbox,
             bbox_transform=ax.transAxes,
             loc="lower left",
             borderpad=0,
         )
-        axins.set(yscale="log", xlim=(x_min, x_max), ylim=(y_min, y_max))
+        axins.set(yscale="log", xlim=(x0, x1), ylim=(y0, y1))
         scatter_by_layer(axins, df)
 
-        mask = df["ent"].between(x_min, x_max) & df["exp"].between(y_min, y_max)
-        sub = df[mask]
-        for idx, row in sub.iterrows():
-            others = sub.drop(idx)
+        sub = df[df["ent"].between(x0, x1) & df["exp"].between(y0, y1)]
+        for _, r in sub.iterrows():
+            others = sub.drop(r.name)
             place_label(
                 axins,
-                row["ent"],
-                max(row["exp"], EPS),
-                str(int(row["model"])),
+                r["ent"],
+                max(r["exp"], EPS),
+                str(int(r["model"])),
                 others["ent"].values,
                 others["exp"].clip(lower=EPS).values,
             )
@@ -180,10 +164,16 @@ def plot_dataset(dataset: str) -> None:
 
     out_dir = Path("../../figures")
     out_dir.mkdir(parents=True, exist_ok=True)
-    fig.savefig(out_dir / f"ent_exp_f1_{dataset}.pgf", bbox_inches="tight")
+
+    # ------- salva PGF + PNG (para Overleaf) ----
+    pgf_path = out_dir / f"ent_exp_f1_{dataset}.pgf"
+    fig.savefig(pgf_path, bbox_inches="tight")
+    # todos os PNGs gerados ficam no mesmo diretório de pgf_path
+
     plt.close(fig)
+    print(f"Saved: {pgf_path.name} (+ PNGs)")
 
 
 if __name__ == "__main__":
-    for ds in DATASETS:  # loop por datasets
+    for ds in DATASETS:
         plot_dataset(ds)
