@@ -1,9 +1,9 @@
 from pathlib import Path
 
-import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from matplotlib.ticker import FormatStrFormatter
 from matplotlib.transforms import offset_copy
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 from utils import models, read_summary
@@ -118,19 +118,34 @@ def plot_dataset(dataset: str) -> None:
             others["exp"].clip(lower=EPS).values,
         )
 
-    # eixo principal
-    safe_title = dataset.replace("_", r"\_").replace("%", r"\%")  # ← escapa LaTeX
+    # eixo principal sem título, ajusta rótulos
     ax.set(
         yscale="log",
-        xlabel="Emaranhamento (média)",
-        ylabel="Expressabilidade (média, log)",
-        title=f"Panorama das medidas — {safe_title}",
+        xlabel="Emaranhamento",
+        ylabel="Divergência KL",
     )
     ax.grid(True, ls="--", lw=0.6, alpha=0.5)
+
+    # seta dupla para expressabilidade na lateral esquerda, invertendo as labels
+    ax.annotate(
+        "",
+        xy=(-0.20, 1),
+        xytext=(-0.20, 0),
+        xycoords="axes fraction",
+        textcoords="axes fraction",
+        arrowprops={"arrowstyle": "<->", "lw": 1.5, "color": "black"},
+        annotation_clip=False,
+    )
+    ax.text(-0.20, 1.02, "Baixa Exp", transform=ax.transAxes, ha="center", va="bottom")
+    ax.text(-0.20, -0.02, "Alta Exp", transform=ax.transAxes, ha="center", va="top")
+
+    # legenda de camadas
     ax.legend(title="Legenda")
 
     # colorbar – usa o PathCollection real → gradiente OK em PDF e PGF
-    fig.colorbar(sc_main, ax=ax, pad=0.02).set_label("F1-score (média)")
+    cbar = fig.colorbar(sc_main, ax=ax, pad=0.02)
+    cbar.set_label("F1")
+    cbar.ax.yaxis.set_major_formatter(FormatStrFormatter("%.2f"))
 
     # janelas de zoom
     for x0, x1, y0, y1, bbox in ZOOMS:
@@ -160,16 +175,14 @@ def plot_dataset(dataset: str) -> None:
 
         mark_inset(ax, axins, loc1=1, loc2=2, fc="none", ec="black", ls="--", lw=0.8)
 
-    fig.subplots_adjust(bottom=0.40, right=1)
+    # ajusta margens: menos branco em cima, mais espaço à esquerda
+    fig.subplots_adjust(top=0.95, bottom=0.40, left=0.20, right=1)
 
     out_dir = Path("../../figures")
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # ------- salva PGF + PNG (para Overleaf) ----
     pgf_path = out_dir / f"ent_exp_f1_{dataset}.pgf"
     fig.savefig(pgf_path, bbox_inches="tight")
-    # todos os PNGs gerados ficam no mesmo diretório de pgf_path
-
     plt.close(fig)
     print(f"Saved: {pgf_path.name} (+ PNGs)")
 
