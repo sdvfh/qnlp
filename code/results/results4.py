@@ -1,18 +1,18 @@
 """
-Unified scatter‑plot figure generator for entanglement *and* expressability.
+Unified scatter-plot figure generator for entanglement *and* expressability.
 
-This script reproduces the visual language of the original F1‑score box‑and‑whisker
+This script reproduces the visual language of the original F1-score box-and-whisker
 plots, but now for the *measures* of quantum *expressability* (exp) and
 *entanglement* (ent).  For every classifier ID we display the mean measure value
-obtained **with** and **without** the state‑preparation layer, and for each case we
+obtained **with** and **without** the state-preparation layer, and for each case we
 show the results for **1** and **10** layers of the variational circuit.
 
 Key design choices (mirroring the first script):
     • Two stacked panels – top for classifiers *3* & *33*, bottom for the rest.
-    • Light grey separators between the two “state‑prep” blocks.
-    • Vertical dotted grid only; x‑axis is the measure value.
-    • Unified x‑limits across panels.
-    • Legend anchored in the lower‑left of the bottom panel.
+    • Light grey separators between the two “state-prep” blocks.
+    • Vertical dotted grid only; x-axis is the measure value.
+    • Unified x-limits across panels.
+    • Legend anchored in the lower-left of the bottom panel.
 
 Visual encoding
 ───────────────
@@ -22,10 +22,10 @@ Visual encoding
                  ▲ (filled triangle) = 10 camadas
 
 A dashed red vertical line indicates the baseline value of the chosen measure
-calculated *only* on the state‑preparation layer (when present in the CSV).
+calculated *only* on the state-preparation layer (when present in the CSV).
 
-Author  : <your‑name>
-Date    : 2025‑06‑30
+Author  : <your-name>
+Date    : 2025-06-30
 """
 
 from __future__ import annotations
@@ -67,7 +67,7 @@ def compute_positions_points(
     layers: Sequence[int],
     gap: float = 0.25,
 ) -> tuple[Dict[tuple[bool, int], np.ndarray]]:
-    """Retorna y‑offsets (como 1‑D arrays) para cada combinação (state_prep, layer).
+    """Retorna y-offsets (como 1-D arrays) para cada combinação (state_prep, layer).
 
     A lógica é equivalente à do *compute_positions* original, mas extremamente
     simplificada ao caso de *scatter*: cada ponto fica exactamente no centro da
@@ -93,7 +93,7 @@ def add_inner_separators(
     pos_map: dict[tuple[bool, int], np.ndarray],
     n_rows: int,
 ) -> None:
-    """Linhas cinza‑claro a meio de cada par *sem/com* estado de prep."""
+    """Linhas cinza-claro a meio de cada par *sem/com* estado de prep."""
     for r in range(n_rows):
         y_a = pos_map[(primaries[0], layers[-1])][r]
         y_b = pos_map[(primaries[1], layers[0])][r]
@@ -278,14 +278,15 @@ if __name__ == "__main__":
     df_meas_all = pd.read_csv(CSV_MEASURES)
     df_meas_all["model"] = df_meas_all["model"].replace(models)
 
-    for ds in DATASETS:
-        df_runs_ds = read_summary().query("dataset == @ds")
+    # lê todos os runs, sem filtrar por dataset
+    df_runs_all = read_summary()
 
-        for meas, fname in [("exp", "expressability"), ("ent", "entanglement")]:
-            generate_measure_figure(
-                df_meas=df_meas_all.copy(),
-                df_runs=df_runs_ds.copy(),
-                dataset=ds,
-                measure_col=meas,
-                out_name=fname,
-            )
+    # gera apenas duas figuras: expressability e entanglement
+    for meas, fname in [("exp", "expressability"), ("ent", "entanglement")]:
+        generate_measure_figure(
+            df_meas=df_meas_all.copy(),
+            df_runs=df_runs_all.copy(),
+            dataset="all",  # figura única abrangendo todos os datasets
+            measure_col=meas,
+            out_name=fname,
+        )
