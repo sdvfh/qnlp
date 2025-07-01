@@ -7,17 +7,18 @@ plots, but now for the *measures* of quantum *expressability* (exp) and
 obtained **with** and **without** the state-preparation layer, and for each case we
 show the results for **1** and **10** layers of the variational circuit.
 
-Key design choices (mirroring the first script):
+Key design choices:
     • Single panel – todos os classificadores juntos.
-    • Light grey separators between the two “state-prep” blocks.
+    • Light grey separators between os blocos sem/com estado-de-prep.
     • Vertical dotted grid only; x-axis é o valor da medida.
-    • Legend anchored in the lower-right.
+    • Legend: expressability no canto superior esquerdo; entanglement no canto superior direito.
     • Expressability em escala log, entanglement em escala linear.
+    • Pontos de mesma cor centralizados na sua subdivisão (sem offset vertical extra).
 
 Visual encoding
 ───────────────
-    ▸ *Colour*  → azul  = *sem* estado de preparação (`with_state_prep == False`)
-                 laranja = *com* estado de preparação (`True`).
+    ▸ *Colour*  → azul  = sem estado de preparação (`with_state_prep == False`)
+                 laranja = com estado de preparação (`True`).
     ▸ *Marker* → ● (círculo) = 1 camada
                  ▲ (triângulo) = 10 camadas
 
@@ -61,16 +62,18 @@ def compute_positions_points(
 ) -> Dict[tuple[bool, int], np.ndarray]:
     """
     Retorna y-offsets (como 1-D arrays) para cada combinação (state_prep, layer),
-    mas mantendo os símbolos de mesma cor alinhados horizontalmente:
-    ou seja, sem offset vertical entre as camadas dentro do mesmo bloco.
+    de modo que:
+      • blocos sem/com estado-prep fiquem deslocados verticalmente pelo mesmo gap;
+      • dentro de cada bloco, os símbolos de 1 vs. 10 camadas fiquem centralizados
+        (sem deslocamento vertical adicional).
     """
     mapping: Dict[tuple[bool, int], np.ndarray] = {}
     base = np.arange(n_rows)
     for pi, prep in enumerate(primaries):
-        # deslocamento base entre bloco sem/com estado de preparação
+        # deslocamento central do bloco sem vs com estado-prep
         block_off = (pi - (len(primaries) - 1) / 2) * gap
         for layer in layers:
-            # ambos os layers usam o mesmo offset vertical
+            # sem offset extra para layers: todos centralizados
             mapping[(prep, layer)] = base + block_off
     return mapping
 
@@ -82,7 +85,7 @@ def add_inner_separators(
     pos_map: Dict[tuple[bool, int], np.ndarray],
     n_rows: int,
 ) -> None:
-    """Linhas cinza-claro a separar blocos sem/com estado de prep."""
+    """Linhas cinza-claro a separar blocos sem/com estado-de-prep."""
     for r in range(n_rows):
         y_a = pos_map[(primaries[0], layers[-1])][r]
         y_b = pos_map[(primaries[1], layers[0])][r]
@@ -180,7 +183,7 @@ def generate_measure_figure(
     if measure_col == "exp":
         ax.set_xscale("log")
 
-    # legenda no canto inferior direito
+    # prepara handles de legenda
     handles_prep = [
         Patch(facecolor=COLOURS[p], label=("Com" if p else "Sem") + " estado de prep.")
         for p in primaries
@@ -198,19 +201,22 @@ def generate_measure_figure(
         for layer in LAYERS
     ]
     base_line = Line2D([], [], color="red", ls="--", label="Só estado de prep.")
+    handles = handles_prep + handles_layers + [base_line]
 
+    # posição da legenda conforme medida
+    legend_loc = "upper left" if measure_col == "exp" else "upper right"
     ax.legend(
-        handles=handles_prep + handles_layers + [base_line],
+        handles=handles,
         title="Legenda",
-        loc="lower right",
+        loc=legend_loc,
         fontsize="small",
         framealpha=1.0,
         edgecolor="black",
         fancybox=True,
     )
 
-    fig.suptitle(f"{measure_col.upper()} — Todos os Classificadores")
-    plt.tight_layout(rect=[0, 0, 1, 0.96])
+    # sem título
+    plt.tight_layout(rect=[0, 0, 1, 1])
 
     out_dir = Path("../../figures")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -228,7 +234,7 @@ if __name__ == "__main__":
 
     df_runs_all = read_summary()
 
-    # apenas duas figuras: expressability e entanglement, com legend em lower right
+    # apenas duas figuras: expressability (legend upper left) e entanglement (legend upper right)
     for meas, fname in [("exp", "expressability"), ("ent", "entanglement")]:
         generate_measure_figure(
             df_meas=df_meas_all.copy(),
