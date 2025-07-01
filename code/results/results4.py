@@ -13,7 +13,8 @@ Key design choices:
     • Vertical dotted grid only; x-axis é o valor da medida.
     • Legend: expressability no canto superior esquerdo; entanglement no canto superior direito.
     • Expressability em escala log, entanglement em escala linear.
-    • Pontos de mesma cor centralizados na sua subdivisão (sem offset vertical extra).
+    • Pontos de mesma cor alinhados horizontalmente, cores diferentes um acima do outro,
+      e centralizados na subdivisão de camada.
 
 Visual encoding
 ───────────────
@@ -58,23 +59,19 @@ def compute_positions_points(
     n_rows: int,
     primaries: Sequence[bool],
     layers: Sequence[int],
-    gap: float = 0.25,
 ) -> Dict[tuple[bool, int], np.ndarray]:
     """
-    Retorna y-offsets (como 1-D arrays) para cada combinação (state_prep, layer),
-    de modo que:
-      • blocos sem/com estado-prep fiquem deslocados verticalmente pelo mesmo gap;
-      • dentro de cada bloco, os símbolos de 1 vs. 10 camadas fiquem centralizados
-        (sem deslocamento vertical adicional).
+    Retorna y-offsets (1-D arrays) para cada combinação (state_prep, layer), de modo que:
+      • todos os pontos de uma mesma cor (prep) fiquem na mesma linha horizontal;
+      • blocos azul e laranja fiquem verticalmente separados por ±0.25.
     """
     mapping: Dict[tuple[bool, int], np.ndarray] = {}
     base = np.arange(n_rows)
+    # cor=False (pi=0) offset=-0.25, cor=True (pi=1) offset=+0.25
     for pi, prep in enumerate(primaries):
-        # deslocamento central do bloco sem vs com estado-prep
-        block_off = (pi - (len(primaries) - 1) / 2) * gap
+        offset = (pi - (len(primaries) - 1) / 2) * 0.5
         for layer in layers:
-            # sem offset extra para layers: todos centralizados
-            mapping[(prep, layer)] = base + block_off
+            mapping[(prep, layer)] = base + offset
     return mapping
 
 
@@ -107,9 +104,11 @@ def plot_measure_panel(
 ) -> None:
     ax.set_axisbelow(True)
     ax.grid(axis="x", color="#CCCCCC", ls="--", lw=0.8)
+    # linhas horizontais externas entre circuitos
     for y in np.arange(len(classifier_order) + 1) - 0.5:
         ax.axhline(y, color="black", lw=1, zorder=0)
 
+    # desenha os pontos na linha de cor correspondente
     for prep in primaries:
         for layer in layers:
             sub = df[(df["with_state_prep"] == prep) & (df["n_layers"] == layer)]
@@ -215,7 +214,7 @@ def generate_measure_figure(
         fancybox=True,
     )
 
-    # sem título
+    # ajusta layout sem título
     plt.tight_layout(rect=[0, 0, 1, 1])
 
     out_dir = Path("../../figures")
@@ -234,7 +233,7 @@ if __name__ == "__main__":
 
     df_runs_all = read_summary()
 
-    # apenas duas figuras: expressability (legend upper left) e entanglement (legend upper right)
+    # gera as duas figuras com legendas e alinhamento correto por cor
     for meas, fname in [("exp", "expressability"), ("ent", "entanglement")]:
         generate_measure_figure(
             df_meas=df_meas_all.copy(),
