@@ -8,21 +8,21 @@ obtained **with** and **without** the state-preparation layer, and for each case
 show the results for **1** and **10** layers of the variational circuit.
 
 Key design choices (mirroring the first script):
-    • Two stacked panels – top for classifiers *3* & *33*, bottom for the rest.
+    • Single panel – todos os classificadores juntos.
     • Light grey separators between the two “state-prep” blocks.
-    • Vertical dotted grid only; x-axis is the measure value.
-    • Unified x-limits across panels.
-    • Legend anchored in the lower-left of the bottom panel.
+    • Vertical dotted grid only; x-axis é o valor da medida.
+    • Legend anchored in the lower-right.
+    • Expressability em escala log, entanglement em escala linear.
 
 Visual encoding
 ───────────────
-    ▸ *Colour*  → blue  = *sem* estado de preparação (`with_state_prep == False`)
-                 orange = *com* estado de preparação (`True`).
-    ▸ *Marker* → ● (filled circle) = 1 camada
-                 ▲ (filled triangle) = 10 camadas
+    ▸ *Colour*  → azul  = *sem* estado de preparação (`with_state_prep == False`)
+                 laranja = *com* estado de preparação (`True`).
+    ▸ *Marker* → ● (círculo) = 1 camada
+                 ▲ (triângulo) = 10 camadas
 
-A dashed red vertical line indicates the baseline value of the chosen measure
-calculated *only* on the state-preparation layer (when present in the CSV).
+A dashed red vertical line indica o valor baseline da medida
+calculado *apenas* no estado-de-prep (quando presente no CSV).
 
 Author  : <your-name>
 Date    : 2025-06-30
@@ -30,9 +30,8 @@ Date    : 2025-06-30
 
 from __future__ import annotations
 
-import itertools
 from pathlib import Path
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, Sequence
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -42,14 +41,8 @@ from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 
 # ─────────────────────────────── imports do projecto ─────────────────────────
-from utils import models  # mapping id → label (usado no CSV de medidas)
-from utils import (
-    classical_ensemble_models,
-    classical_models,
-    quantum_ensemble_models,
-    quantum_models,
-    read_summary,
-)
+from utils import models  # mapeia id → label (usado no CSV de medidas)
+from utils import read_summary
 
 # ───────────────────────── CONFIGURAÇÃO GERAL ───────────────────────────────
 CSV_MEASURES = Path("../../results/measures_all.csv")
@@ -65,14 +58,20 @@ def compute_positions_points(
     primaries: Sequence[bool],
     layers: Sequence[int],
     gap: float = 0.25,
-) -> tuple[Dict[tuple[bool, int], np.ndarray]]:
-    mapping: dict[tuple[bool, int], np.ndarray] = {}
+) -> Dict[tuple[bool, int], np.ndarray]:
+    """
+    Retorna y-offsets (como 1-D arrays) para cada combinação (state_prep, layer),
+    mas mantendo os símbolos de mesma cor alinhados horizontalmente:
+    ou seja, sem offset vertical entre as camadas dentro do mesmo bloco.
+    """
+    mapping: Dict[tuple[bool, int], np.ndarray] = {}
     base = np.arange(n_rows)
     for pi, prep in enumerate(primaries):
+        # deslocamento base entre bloco sem/com estado de preparação
         block_off = (pi - (len(primaries) - 1) / 2) * gap
-        for li, layer in enumerate(layers):
-            layer_off = (li - (len(layers) - 1) / 2) * (gap / 2)
-            mapping[(prep, layer)] = base + block_off + layer_off
+        for layer in layers:
+            # ambos os layers usam o mesmo offset vertical
+            mapping[(prep, layer)] = base + block_off
     return mapping
 
 
@@ -80,9 +79,10 @@ def add_inner_separators(
     ax: Axes,
     primaries: Sequence[bool],
     layers: Sequence[int],
-    pos_map: dict[tuple[bool, int], np.ndarray],
+    pos_map: Dict[tuple[bool, int], np.ndarray],
     n_rows: int,
 ) -> None:
+    """Linhas cinza-claro a separar blocos sem/com estado de prep."""
     for r in range(n_rows):
         y_a = pos_map[(primaries[0], layers[-1])][r]
         y_b = pos_map[(primaries[1], layers[0])][r]
@@ -99,7 +99,7 @@ def plot_measure_panel(
     measure_col: str,
     primaries: Sequence[bool],
     layers: Sequence[int],
-    pos_map: dict[tuple[bool, int], np.ndarray],
+    pos_map: Dict[tuple[bool, int], np.ndarray],
     dashed_baseline: float | None,
 ) -> None:
     ax.set_axisbelow(True)
@@ -158,12 +158,10 @@ def generate_measure_figure(
     )
     df["model"] = df["model"].astype(int)
 
-    # todos os modelos em uma única ordem
     order = sorted(df["model"].unique())
     primaries = [False, True]
     pos_map = compute_positions_points(len(order), primaries, LAYERS)
 
-    # baseline a partir de estados de prep
     baseline_row = df_meas[df_meas["model"].map(str).str.contains("prep", case=False)]
     baseline_val = baseline_row[measure_col].mean() if not baseline_row.empty else None
 
@@ -182,7 +180,7 @@ def generate_measure_figure(
     if measure_col == "exp":
         ax.set_xscale("log")
 
-    # legenda única
+    # legenda no canto inferior direito
     handles_prep = [
         Patch(facecolor=COLOURS[p], label=("Com" if p else "Sem") + " estado de prep.")
         for p in primaries
@@ -204,7 +202,7 @@ def generate_measure_figure(
     ax.legend(
         handles=handles_prep + handles_layers + [base_line],
         title="Legenda",
-        loc="lower left",
+        loc="lower right",
         fontsize="small",
         framealpha=1.0,
         edgecolor="black",
@@ -230,7 +228,7 @@ if __name__ == "__main__":
 
     df_runs_all = read_summary()
 
-    # apenas duas figuras: expressability e entanglement, sem separação por circuito 3
+    # apenas duas figuras: expressability e entanglement, com legend em lower right
     for meas, fname in [("exp", "expressability"), ("ent", "entanglement")]:
         generate_measure_figure(
             df_meas=df_meas_all.copy(),
