@@ -216,7 +216,7 @@ def plot_panel(
     ax.set_ylim(len(classifier_order) - 0.5, -0.5)
     ax.set_yticks(np.arange(len(classifier_order)))
     ax.set_yticklabels(classifier_order)
-    ax.set_xlabel("F1 score")
+    ax.set_xlabel("F1")
 
 
 # ──────────────────────────── figure driver ───────────────────────────────────
