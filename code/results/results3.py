@@ -1,8 +1,3 @@
-"""
-Gera, para cada dataset, um diagram de diferença crítica filtrado para exibir
-apenas os estimadores que participam de cliques contendo ao menos um modelo clássico.
-"""
-
 import matplotlib.pyplot as plt
 import numpy as np
 from aeon.visualisation import plot_critical_difference
@@ -13,8 +8,8 @@ from utils import classical_ensemble_models, classical_models, read_summary
 # ─────────── Configuração ───────────
 DATASETS = ("chatgpt_easy", "chatgpt_medium", "chatgpt_hard", "sst")
 ALPHA = 0.05
-WIDTH = 6
-TEXTSPACE = 1.5
+WIDTH = 10  # aumentamos a largura para dar mais espaço à régua de rank
+TEXTSPACE = 1.9
 REVERSE = True
 
 # ─────────── Carrega todos os resultados ───────────
@@ -71,35 +66,32 @@ for ds in DATASETS:
     pairwise = pmat > threshold
     cliques = _build_cliques(pairwise)
 
-    # 8) filtra apenas cliques que contenham pelo menos um modelo clássico
-    def is_classical_idx(ordered_labels, idx: int) -> bool:
+    # 8) filtra apenas cliques que contenham modelo clássico
+    def is_classical_idx(idx: int) -> bool:
         model_id = int(ordered_labels[idx].split("_")[0])
         return model_id in classical_models + classical_ensemble_models
 
     filtered_cliques = [
         clique
         for clique in cliques
-        if any(
-            is_classical_idx(ordered_labels, i) for i, flag in enumerate(clique) if flag
-        )
+        if any(is_classical_idx(i) for i, flag in enumerate(clique) if flag)
     ]
 
-    # 9) reúne o conjunto de índices de todos os estimadores nesses cliques
+    # 9) índices dos estimadores a manter
     keep_idxs = sorted(
         {i for clique in filtered_cliques for i, flag in enumerate(clique) if flag}
     )
 
-    # 10) reordena e filtra o pivot original
+    # 10) filtra o pivot original
     ordered_cols = list(pivot.columns[order])
-    pivot_ordered = pivot.loc[:, ordered_cols]
-    pivot_filtered = pivot_ordered.iloc[:, keep_idxs]
+    pivot_filtered = pivot.loc[:, ordered_cols].iloc[:, keep_idxs]
 
     scores_filt = pivot_filtered.values
     labels_filt = [
         f"{int(mc)}_{int(nl)}" for mc, nl in pivot_filtered.columns.to_list()
     ]
 
-    # 11) gera o diagram de diferença crítica final só com os estimadores filtrados
+    # 11) gera o CD plot final só com os estimadores filtrados
     fig2, ax2 = plot_critical_difference(
         scores_filt,
         labels_filt,
@@ -111,10 +103,11 @@ for ds in DATASETS:
         textspace=TEXTSPACE,
         reverse=REVERSE,
     )
+    pos = ax2.get_position()
+    ax2.set_position([pos.x0, pos.y0 + 0.05, pos.width, pos.height - 0.05])
+    # 12) ajusta margens para não cortar nada
+    # fig2.subplots_adjust(top=0.8)
+    # fig2.tight_layout()
 
-    # 12) salva e fecha
-    # fig2.savefig(f"cd_filtered_{ds}.pdf", bbox_inches="tight")
-    fig2.subplots_adjust(bottom=0.8)
     plt.show()
-    plt.close(fig2)
     print(f"Salvo: cd_filtered_{ds}.pdf")
