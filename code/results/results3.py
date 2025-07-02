@@ -1,53 +1,110 @@
+"""
+Gera, para cada dataset, uma “matriz de cliques” colorida pelo rank geral dos
+modelos dentro de cada clique identificado pelo teste de Wilcoxon + Holm.
+"""
+
+import matplotlib.pyplot as plt
+import numpy as np
 from aeon.visualisation import plot_critical_difference
-from matplotlib import pyplot as plt
+from aeon.visualisation.results._critical_difference import _build_cliques
+from scipy.stats import rankdata
 from utils import read_summary
 
-# 1) Carrega o summary com todos os seeds, modelos e datasets
+# ─────────── Configuração ───────────
+DATASETS = ("chatgpt_easy", "chatgpt_medium", "chatgpt_hard", "sst")
+ALPHA = 0.05
+WIDTH = 6
+TEXTSPACE = 1.5
+REVERSE = True
+
+# ─────────── Carrega tudo ───────────
 df = read_summary()
 
-# 2) Define as bases de dados de interesse
-DATASETS = ("chatgpt_easy", "chatgpt_medium", "chatgpt_hard", "sst")
-
 for ds in DATASETS:
-    # 3) Filtra apenas as execuções daquele dataset
+    # 1) filtra dataset + transformer + n_qubits conforme seu exemplo
     df_ds = df[
         (df["dataset"] == ds)
         & (df["model_transformer"] == "tomaarsen/mpnet-base-nli-matryoshka")
         & (df["n_qubits"] == 4)
     ]
 
-    # 4) Pivot para ter seeds nas linhas e (modelo, camadas) nas colunas
+    # 2) pivot para (seeds × estimadores)
     pivot = df_ds.pivot_table(
         index="seed",
         columns=["model_classifier", "n_layers"],
         values="f1",
-        dropna=False,  # manter todas as colunas mesmo que falte algum valor
-    )
+        dropna=False,
+    ).dropna(axis=1, how="all")
 
-    # 5) Remove colunas que não têm nenhum valor
-    pivot = pivot.dropna(axis=1, how="all")
+    scores = pivot.values  # (n_seeds, n_estimators)
+    labels = [
+        f"{int(mc)}_{int(nl)}"  # rótulos “ID_CAMADAS”
+        for mc, nl in pivot.columns.to_list()
+    ]
 
-    # 6) Extrai a matriz de scores e monta os labels
-    scores = pivot.values  # shape = (n_seeds, n_estimators)
-    labels = [f"{int(mc)}_{int(nl)}" for mc, nl in pivot.columns.to_list()]
-
-    # 7) Gera o diagram de diferença crítica
-    #    - lower_better=False pois F1 maior é melhor
-    #    - alpha=0.05 (por ex.) para teste de Wilcoxon + Holm
-    fig, ax = plot_critical_difference(
+    # 3) chama o CD plot original, só para pegar p‐values e ax
+    fig, ax, pvalues = plot_critical_difference(
         scores,
         labels,
         lower_better=False,
         test="wilcoxon",
         correction="holm",
-        alpha=0.05,
-        reverse=True,  # melhor rank à esquerda
-        width=6,
-        textspace=1.5,
+        alpha=ALPHA,
+        width=WIDTH,
+        textspace=TEXTSPACE,
+        reverse=REVERSE,
+        return_p_values=True,
     )
+    fig.close()
 
-    # 8) Salva a figura
-    # fig.savefig(f"cd_{ds}.pdf", bbox_inches="tight")
+    # 4) calcula ranks e média de ranks para cada estimador
+    #    (rankdata(-scores) porque “maior F1 = melhor rank”)
+    ranks = rankdata(-scores, axis=1)
+    avg_ranks = ranks.mean(axis=0)
+
+    # 5) reordena tudo pelo avg_rank
+    order = np.argsort(avg_ranks)
+    ordered_labels = [labels[i] for i in order]
+    ordered_avg_ranks = avg_ranks[order]
+    pmat = pvalues[np.ix_(order, order)]
+    m = len(ordered_labels)
+
+    # 6) constrói a matrix booleana de não‐diferença (p > α/(m−1))
+    threshold = ALPHA / (m - 1)
+    pairwise = pmat > threshold
+
+    # 7) obtém *todos* os cliques (lista de listas de flags)
+    cliques = _build_cliques(pairwise)
+
+    # 8) monta a matriz M que guardará o “valor de rank” de cada clique
+    M = np.full((m, m), np.nan)
+    # a diagonal recebe o próprio avg_rank do modelo
+    for i in range(m):
+        M[i, i] = ordered_avg_ranks[i]
+    # cada clique preenche o sub-bloco i×j com o *melhor* (menor) rank do clique
+    for clique in cliques:
+        members = [i for i, in_clique in enumerate(clique) if in_clique]
+        best = ordered_avg_ranks[members].min()
+        for i in members:
+            for j in members:
+                if i < j:
+                    M[i, j] = best
+                    M[j, i] = best
+
+    # 9) plota a matriz colorida
+    fig2, ax2 = plt.subplots(figsize=(8, 8))
+    cmap = plt.cm.viridis_r
+    im = ax2.imshow(M, cmap=cmap, origin="lower")
+    ax2.set_xticks(np.arange(m))
+    ax2.set_xticklabels(ordered_labels, rotation=90)
+    ax2.set_yticks(np.arange(m))
+    ax2.set_yticklabels(ordered_labels)
+    cbar = fig2.colorbar(im, ax=ax2, fraction=0.046, pad=0.04)
+    cbar.set_label("Rank (menor = melhor)")
+    ax2.set_title(f"Matriz de Cliques – {ds}")
+    plt.tight_layout()
+
+    # 10) salva e exibe
+    # fig2.savefig(f"clique_matrix_{ds}.pdf", bbox_inches="tight")
     plt.show()
-    print(f"Salvo: cd_{ds}.pdf")
-    break
+    print(f"Salvo: clique_matrix_{ds}.pdf")
