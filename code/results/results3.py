@@ -44,7 +44,7 @@ for ds in DATASETS:
     scores = pivot.values
     labels = [format_label(mc, nl) for mc, nl in pivot.columns.to_list()]
 
-    # 4) pega p‐values crus
+    # 4) pega p‐values brutos via CD plot
     fig, ax, pvalues = plot_critical_difference(
         scores,
         labels,
@@ -59,11 +59,11 @@ for ds in DATASETS:
     )
     plt.close(fig)
 
-    # 5) ranks médios
+    # 5) calcula ranks e médias de ranks
     ranks = rankdata(-scores, axis=1)
     avg_ranks = ranks.mean(axis=0)
 
-    # 6) ordenação
+    # 6) ordena estimadores
     order = np.argsort(avg_ranks)
     ordered_labels = [labels[i] for i in order]
     ordered_avg_ranks = avg_ranks[order]
@@ -71,39 +71,50 @@ for ds in DATASETS:
     m = len(ordered_labels)
 
     # 7) correção Holm via multipletests
-    # extrai apenas a parte acima da diagonal (k=1)
     iu = np.triu_indices(m, k=1)
     raw = raw_pmat[iu]
-    # aplica Holm
     _, p_holm, _, _ = multipletests(raw, alpha=ALPHA, method="holm")
-    # remonta a matriz simétrica de pval corrigidos
     pmat_holm = np.ones_like(raw_pmat)
     pmat_holm[iu] = p_holm
     pmat_holm[(iu[1], iu[0])] = p_holm
 
-    # 8) monta a matriz booleana de “não diferença”
+    # 8) boolean de “não diferença”
     pairwise = pmat_holm > ALPHA
 
     # 9) forma cliques
     cliques = _build_cliques(pairwise)
 
-    # 10) filtra cliques que incluam algum clássico
+    # 10) filtra cliques com ao menos um clássico e size>1
     def is_classical_idx(idx: int) -> bool:
         mc = int(ordered_labels[idx].split("_")[0])
         return mc in classical_models + classical_ensemble_models
 
-    filtered = [
-        clique
-        for clique in cliques
-        if any(is_classical_idx(i) for i, flag in enumerate(clique) if flag)
+    filtered_cliques = [
+        cl
+        for cl in cliques
+        if sum(cl) > 1 and any(is_classical_idx(i) for i, flag in enumerate(cl) if flag)
     ]
 
-    # 11) índices a manter
-    keep = sorted({i for clique in filtered for i, flag in enumerate(clique) if flag})
+    # 11) índices iniciais a manter (só membros dos cliques filtrados)
+    keep = sorted({i for cl in filtered_cliques for i, flag in enumerate(cl) if flag})
+
+    # 11.1) adiciona o complemento de camadas para cada modelo quântico em keep
+    ordered_cols = [pivot.columns[i] for i in order]  # lista de (mc,nl) na ordem
+    layer_values = sorted({nl for _, nl in ordered_cols})
+    mapping = {(mc, nl): idx for idx, (mc, nl) in enumerate(ordered_cols)}
+
+    extended = set(keep)
+    for idx in keep:
+        mc, nl = ordered_cols[idx]
+        if mc not in classical_models + classical_ensemble_models:
+            # adiciona todos os outros nl desse mesmo mc
+            for nl2 in layer_values:
+                if nl2 != nl and (mc, nl2) in mapping:
+                    extended.add(mapping[(mc, nl2)])
+    keep = sorted(extended)
 
     # 12) filtra o pivot
-    cols_ordered = [pivot.columns[i] for i in order]
-    pivot_filtered = pivot.loc[:, cols_ordered].iloc[:, keep]
+    pivot_filtered = pivot.loc[:, ordered_cols].iloc[:, keep]
 
     scores_filt = pivot_filtered.values
     labels_filt = [format_label(mc, nl) for mc, nl in pivot_filtered.columns.to_list()]
@@ -121,10 +132,9 @@ for ds in DATASETS:
         reverse=REVERSE,
     )
 
-    # 14) ajusta posição para não cortar nada
+    # 14) empurra o eixo pra cima para não cortar nada e aumenta dpi
     pos = ax2.get_position()
     ax2.set_position([pos.x0, pos.y0 + 0.05, pos.width, pos.height - 0.05])
-    # aumenta dpi
     fig2.set_dpi(300)
 
     plt.show()
