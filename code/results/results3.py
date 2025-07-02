@@ -1,6 +1,7 @@
 """
 Gera, para cada dataset, uma “matriz de cliques” colorida pelo rank geral dos
-modelos dentro de cada clique identificado pelo teste de Wilcoxon + Holm.
+modelos dentro de cada clique identificado pelo teste de Wilcoxon + Holm,
+ignorando a diagonal principal.
 """
 
 import matplotlib.pyplot as plt
@@ -42,7 +43,7 @@ for ds in DATASETS:
         for mc, nl in pivot.columns.to_list()
     ]
 
-    # 3) chama o CD plot original, só para pegar p‐values e ax
+    # 3) pega p‐values
     fig, ax, pvalues = plot_critical_difference(
         scores,
         labels,
@@ -55,46 +56,44 @@ for ds in DATASETS:
         reverse=REVERSE,
         return_p_values=True,
     )
-    fig.close()
+    plt.close(fig)
 
-    # 4) calcula ranks e média de ranks para cada estimador
-    #    (rankdata(-scores) porque “maior F1 = melhor rank”)
+    # 4) calcula ranks e média de ranks
     ranks = rankdata(-scores, axis=1)
     avg_ranks = ranks.mean(axis=0)
 
-    # 5) reordena tudo pelo avg_rank
+    # 5) ordena
     order = np.argsort(avg_ranks)
     ordered_labels = [labels[i] for i in order]
     ordered_avg_ranks = avg_ranks[order]
     pmat = pvalues[np.ix_(order, order)]
     m = len(ordered_labels)
 
-    # 6) constrói a matrix booleana de não‐diferença (p > α/(m−1))
+    # 6) cria matriz binária de não‐diferença
     threshold = ALPHA / (m - 1)
     pairwise = pmat > threshold
 
-    # 7) obtém *todos* os cliques (lista de listas de flags)
+    # 7) obtém cliques
     cliques = _build_cliques(pairwise)
 
-    # 8) monta a matriz M que guardará o “valor de rank” de cada clique
+    # 8) monta matriz M sem preencher a diagonal
     M = np.full((m, m), np.nan)
-    # a diagonal recebe o próprio avg_rank do modelo
-    for i in range(m):
-        M[i, i] = ordered_avg_ranks[i]
-    # cada clique preenche o sub-bloco i×j com o *melhor* (menor) rank do clique
+    # para cada clique, preenche sub‐bloco com o melhor rank
     for clique in cliques:
         members = [i for i, in_clique in enumerate(clique) if in_clique]
         best = ordered_avg_ranks[members].min()
         for i in members:
             for j in members:
-                if i < j:
+                if i != j:
                     M[i, j] = best
-                    M[j, i] = best
 
-    # 9) plota a matriz colorida
+    # 9) máscara para ignorar diagonal
+    M_masked = np.ma.masked_invalid(M)
+
+    # 10) plota matriz colorida
     fig2, ax2 = plt.subplots(figsize=(8, 8))
     cmap = plt.cm.viridis_r
-    im = ax2.imshow(M, cmap=cmap, origin="lower")
+    im = ax2.imshow(M_masked, cmap=cmap, origin="lower")
     ax2.set_xticks(np.arange(m))
     ax2.set_xticklabels(ordered_labels, rotation=90)
     ax2.set_yticks(np.arange(m))
@@ -104,7 +103,7 @@ for ds in DATASETS:
     ax2.set_title(f"Matriz de Cliques – {ds}")
     plt.tight_layout()
 
-    # 10) salva e exibe
-    # fig2.savefig(f"clique_matrix_{ds}.pdf", bbox_inches="tight")
+    # 11) exibe e salva
     plt.show()
+    # fig2.savefig(f"clique_matrix_{ds}.pdf", bbox_inches="tight")
     print(f"Salvo: clique_matrix_{ds}.pdf")
