@@ -311,14 +311,15 @@ def generate_figure(
                 # Apenas plotar onde há dados (present == True)
                 ys_present = ys[present.values]
                 vals_present = vals[present.values]
+                bar_colors = ["green" if v > 0 else "red" for v in vals_present]
 
                 if layer == layers[0]:
                     ax_r.barh(
                         ys_present,
                         vals_present,
                         height=bar_h,
-                        facecolor="red",
-                        edgecolor="red",
+                        facecolor=bar_colors,
+                        edgecolor="black",
                         label=f"{layer} camada",
                     )
                 else:
@@ -326,7 +327,7 @@ def generate_figure(
                         ys_present,
                         vals_present,
                         height=bar_h,
-                        facecolor="red",
+                        facecolor=bar_colors,
                         edgecolor="black",
                         hatch=hatch_map[layer],
                         label=f"{layer} camadas",
@@ -357,8 +358,8 @@ def generate_figure(
                 vals = series_full.fillna(0).values
                 ys = y_idx + offsets[layer]
                 present = series_full.notna()
-                for v, y, pres in zip(vals, ys, present):
-                    if not pres:
+                for v, y, is_present in zip(vals, ys, present, strict=True):
+                    if not is_present:
                         continue
                     txt = f"{int(v)}"
                     if abs(v) >= thresh:
