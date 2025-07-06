@@ -243,7 +243,7 @@ def generate_figure(
         fig, axes = plt.subplots(
             2,
             2,
-            figsize=(8, 10),
+            figsize=(6, 10),
             dpi=300,
             sharey="row",
             gridspec_kw={
@@ -252,8 +252,23 @@ def generate_figure(
             },
         )
         titles = ["Modelos 3 e 33", "Demais Modelos"]
+        # ── CENTRALIZA TÍTULOS SOBRE OS DOIS SUBPLOTS ────────────────────────
+        for row, title in enumerate(titles):
+            pos0 = axes[row, 0].get_position()
+            pos1 = axes[row, 1].get_position()
+            # centro em coords de figura
+            mid_fig = (pos0.x0 + pos1.x1) / 2
+            # converte para fração do eixo esquerdo
+            x_rel = (mid_fig - pos0.x0) / pos0.width
+            axes[row, 0].set_title(
+                title,
+                x=x_rel,
+                y=1,
+                fontsize="large",
+            )
+        # ────────────────────────────────────────────────────────────────────
 
-        for row, (ax_l, ax_r, subset, order, pos, pmap) in enumerate(
+        for _, (ax_l, ax_r, subset, order, pos, pmap) in enumerate(
             [
                 (axes[0, 0], axes[0, 1], df_top, orders[0], pos_top, map_top),
                 (axes[1, 0], axes[1, 1], df_bot, orders[1], pos_bot, map_bot),
@@ -273,9 +288,10 @@ def generate_figure(
                 color_map,
                 hatch_map,
             )
-            ax_l.set_title(titles[row])
+            # ax_l.set_title(titles[row])
 
             # Grid e linhas horizontais na direita
+            ax_r.set_xlabel("Δ F1 (%)\n(768→16)")
             ax_r.set_axisbelow(True)
             ax_r.grid(axis="x", color="#CCCCCC", ls="--", lw=0.8)
             for y in np.arange(len(order) + 1) - 0.5:
@@ -366,7 +382,7 @@ def generate_figure(
 
         # 2) Legenda de diferenças na direita (apenas bottom-right, mais à esquerda)
         axes[1, 1].legend(
-            title="Δ F1 (%)\n(768→16)",
+            title="Legenda",
             loc="lower left",
             fontsize="small",
             framealpha=1.0,
@@ -446,8 +462,8 @@ def generate_figure(
 
     plt.tight_layout()
     out_path = Path("../../figures") / f"{out_name}_{dataset}.pgf"
-    fig.savefig(out_path, bbox_inches="tight")
-    # plt.show()
+    # fig.savefig(out_path, bbox_inches="tight")
+    plt.show()
     plt.close(fig)
     print(f"Saved: {out_path}")
 
