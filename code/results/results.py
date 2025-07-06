@@ -288,6 +288,9 @@ def generate_figure(
             ax_r.set_ylim(ax_l.get_ylim())
             ax_r.set_yticks([])
 
+        for idx, order in enumerate(orders):
+            axes[idx, 0].set_yticks(np.arange(len(order)))
+            axes[idx, 0].set_yticklabels(order)
         # 1) Legenda original na esquerda (apenas bottom-left)
         handles_primary = [
             Patch(facecolor=color_map[p], label=attr_label_fmt.format(p))
