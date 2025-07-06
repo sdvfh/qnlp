@@ -254,7 +254,7 @@ def generate_figure(
         for row, title in enumerate(titles):
             pos0 = axes[row, 0].get_position()
             pos1 = axes[row, 1].get_position()
-            mid_fig = (pos0.x0 + pos1.x1) / 2
+            mid_fig = (pos0.x0 + pos1.x1) / 2 - 0.05
             x_rel = (mid_fig - pos0.x0) / pos0.width
             axes[row, 0].set_title(
                 title,
@@ -472,7 +472,7 @@ def generate_figure(
         )
 
     plt.tight_layout()
-    for extension in ["pdf", "pgf"]:
+    for extension in ["png", "pgf"]:
         out_path = Path("../../figures") / f"{out_name}_{dataset}.{extension}"
         fig.savefig(out_path, bbox_inches="tight")
     # plt.show()
@@ -492,7 +492,7 @@ if __name__ == "__main__":
         & (df_tr["model_classifier"].isin(classical_models + quantum_models))
     ]
     transformers = df_tr["model_transformer"].unique().tolist()
-    colors_tr = plt.cm.Set2(np.linspace(0, 0.4, len(transformers)))
+    colors_tr = plt.cm.twilight_shifted(np.linspace(0.15, 0.45, len(transformers)))
     cmap_tr = {t: colors_tr[i] for i, t in enumerate(transformers)}
     for ds in DATASETS:
         generate_figure(
@@ -517,7 +517,7 @@ if __name__ == "__main__":
         & (df_ft["n_features"].isin(feats))
         & (df_ft["model_classifier"].isin(classical_models + quantum_models))
     ]
-    colors_ft = plt.cm.Set2(np.linspace(0.7, 1, len(feats)))
+    colors_ft = plt.cm.twilight_shifted(np.linspace(0.70, 0.90, len(feats)))
     cmap_ft = {f: colors_ft[i] for i, f in enumerate(feats)}
     for ds in DATASETS:
         generate_figure(
