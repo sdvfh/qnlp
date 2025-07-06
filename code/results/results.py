@@ -161,7 +161,7 @@ def plot_panel(
     ax.set_xlabel("F1")
 
 
-# ──────────────────────────── figure driver ───────────────────────────────────
+# ──────────────────────────── figure driver ────────────────────────────────────
 
 
 def generate_figure(
@@ -216,7 +216,6 @@ def generate_figure(
                 "width_ratios": [3, 1],
             },
         )
-
         titles = ["Modelos 3 e 33", "Demais Modelos"]
 
         for row, (ax_l, ax_r, subset, order, pos, pmap) in enumerate(
@@ -225,7 +224,7 @@ def generate_figure(
                 (axes[1, 0], axes[1, 1], df_bot, orders[1], pos_bot, map_bot),
             ]
         ):
-            # 1) boxplot à esquerda
+            # Boxplot à esquerda
             plot_panel(
                 ax_l,
                 subset,
@@ -241,14 +240,19 @@ def generate_figure(
             )
             ax_l.set_title(titles[row])
 
-            # 2) barras de diferença à direita
+            # Grid e linhas horizontais na direita
+            ax_r.set_axisbelow(True)
+            ax_r.grid(axis="x", color="#CCCCCC", ls="--", lw=0.8)
+            for y in np.arange(len(order) + 1) - 0.5:
+                ax_r.axhline(y, color="black", lw=1, zorder=0)
+
+            # Barras de diferença
             y_idx = np.arange(len(order))
             bar_h = 0.3
             offsets = {layers[0]: -bar_h / 2, layers[1]: +bar_h / 2}
             all_vals: list[float] = []
 
             for layer in layers:
-                # extrai as diferenças para esta camada
                 try:
                     series_layer = diff.xs(layer, level=1)
                 except KeyError:
@@ -256,25 +260,23 @@ def generate_figure(
                 vals = series_layer.reindex(order).fillna(0).values
                 ys = y_idx + offsets[layer]
                 if layer == layers[0]:
-                    # 1 camada: barra sólida vermelha
                     ax_r.barh(
                         ys,
                         vals,
                         height=bar_h,
-                        label=f"{layer} camada",
                         facecolor="red",
                         edgecolor="red",
+                        label=f"{layer} camada",
                     )
                 else:
-                    # 10 camadas: vermelho + hachura preta
                     ax_r.barh(
                         ys,
                         vals,
                         height=bar_h,
-                        label=f"{layer} camadas",
                         facecolor="red",
                         edgecolor="black",
                         hatch=hatch_map[layer],
+                        label=f"{layer} camadas",
                     )
                 all_vals.extend(vals.tolist())
 
@@ -283,16 +285,52 @@ def generate_figure(
             xmax = max(0, max(all_vals)) if all_vals else 0
             margin = max(abs(xmin), abs(xmax)) * 0.1
             ax_r.set_xlim(xmin - margin, xmax + margin)
-            ax_r.set_ylim(ax_l.get_ylim())  # compartilha limites y
-            ax_r.set_yticks([])  # sem rótulos y
-            ax_r.set_xlabel("Δ F1 (%)")
-            ax_r.legend(
-                title="Diferença\n(16→768)",
-                loc="lower right",
-                fontsize="small",
-                framealpha=1.0,
+            ax_r.set_ylim(ax_l.get_ylim())
+            ax_r.set_yticks([])
+
+        # 1) Legenda original na esquerda (apenas bottom-left)
+        handles_primary = [
+            Patch(facecolor=color_map[p], label=attr_label_fmt.format(p))
+            for p in primary_vals
+        ]
+        handles_layers = [
+            Patch(
+                facecolor="white",
+                hatch=hatch_map[layer],
                 edgecolor="black",
+                label=f"{layer} camada{'s' if layer > 1 else ''}",
             )
+            for layer in layers
+        ]
+        x_handle = Line2D(
+            [],
+            [],
+            marker="x",
+            color="#ed1fed",
+            ls="",
+            markersize=12,
+            label="Sem diferença entre camadas",
+        )
+        arrow_handle = Line2D([], [], color="#0b31bf", lw=1.5, label=arrow_label)
+        handles = handles_primary + handles_layers + [x_handle, arrow_handle]
+        axes[1, 0].legend(
+            handles=handles,
+            title="Legenda",
+            loc="lower left",
+            fontsize="small",
+            framealpha=1.0,
+            edgecolor="black",
+            fancybox=True,
+        )
+
+        # 2) Legenda de diferenças na direita (apenas bottom-right, mais à esquerda)
+        axes[1, 1].legend(
+            title="Δ F1 (%)\n(768→16)",
+            loc="lower left",
+            fontsize="small",
+            framealpha=1.0,
+            edgecolor="black",
+        )
 
     # ───── Layout padrão para demais primaries ───────────────────────────
     else:
@@ -324,7 +362,6 @@ def generate_figure(
         ax_l.set_title("Modelos 3 e 33")
         ax_b.set_title("Demais Modelos")
 
-        # legenda original
         handles_primary = []
         if attr_label_fmt:
             handles_primary = [
