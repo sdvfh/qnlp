@@ -291,7 +291,7 @@ def generate_figure(
             for y in np.arange(len(order) + 1) - 0.5:
                 ax_r.axhline(y, color="black", lw=1, zorder=0)
 
-            # Barras de diferença
+            # ── MODIFICAÇÃO: Barras de diferença sem dados de 10 camadas ───
             y_idx = np.arange(len(order))
             bar_h = 0.3
             offsets = {layers[0]: -bar_h / 2, layers[1]: +bar_h / 2}
@@ -302,12 +302,20 @@ def generate_figure(
                     series_layer = diff.xs(layer, level=1)
                 except KeyError:
                     continue
-                vals = series_layer.reindex(order).fillna(0).values
+                # Reindex para manter ordem, mas identificar ausências
+                series_full = series_layer.reindex(order)
+                present = series_full.notna()
+                vals = series_full.fillna(0).values
                 ys = y_idx + offsets[layer]
+
+                # Apenas plotar onde há dados (present == True)
+                ys_present = ys[present.values]
+                vals_present = vals[present.values]
+
                 if layer == layers[0]:
                     ax_r.barh(
-                        ys,
-                        vals,
+                        ys_present,
+                        vals_present,
                         height=bar_h,
                         facecolor="red",
                         edgecolor="red",
@@ -315,28 +323,29 @@ def generate_figure(
                     )
                 else:
                     ax_r.barh(
-                        ys,
-                        vals,
+                        ys_present,
+                        vals_present,
                         height=bar_h,
                         facecolor="red",
                         edgecolor="black",
                         hatch=hatch_map[layer],
                         label=f"{layer} camadas",
                     )
-                all_vals.extend(vals.tolist())
+
+                all_vals.extend(vals_present.tolist())
 
             ax_r.axvline(0, ls="--", color="gray")
             xmin, xmax = min(0, min(all_vals) if all_vals else 0), max(
                 0, max(all_vals) if all_vals else 0
             )
-            margin = max(abs(xmin), abs(xmax)) * 0.1
+            margin = max(abs(xmin), abs(xmax)) * 0.13
             ax_r.set_xlim(xmin - margin, xmax + margin)
             ax_r.set_ylim(ax_l.get_ylim())
             ax_r.set_yticks([])
             ax_r.tick_params(axis="y", which="both", length=0)
             ax_r.set_xlabel("Δ F1 (%)\n(768→16)")
 
-            # ── EXIBE VALORES SOBRE AS BARRAS ───────────────────────────
+            # ── MODIFICAÇÃO: Textos somente onde há dados ────────────────
             rng = ax_r.get_xlim()[1] - ax_r.get_xlim()[0]
             thresh = rng * 0.05
             for layer in layers:
@@ -344,9 +353,13 @@ def generate_figure(
                     series_layer = diff.xs(layer, level=1)
                 except KeyError:
                     continue
-                vals = series_layer.reindex(order).fillna(0).values
+                series_full = series_layer.reindex(order)
+                vals = series_full.fillna(0).values
                 ys = y_idx + offsets[layer]
-                for v, y in zip(vals, ys, strict=True):
+                present = series_full.notna()
+                for v, y, pres in zip(vals, ys, present):
+                    if not pres:
+                        continue
                     txt = f"{int(v)}"
                     if abs(v) >= thresh:
                         x_txt = v / 2
