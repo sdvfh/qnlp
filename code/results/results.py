@@ -441,7 +441,7 @@ def generate_figure(
                 series_full = series_layer.reindex(order)
                 values = series_full.fillna(0).values
                 ys = y_indices + offsets[layer]
-                present_mask = series_full.notna()
+                present_mask = series_full.notna().values
                 for v, y, present_flag in zip(values, ys, present_mask, strict=True):
                     if not present_flag:
                         continue
@@ -504,8 +504,197 @@ def generate_figure(
             fancybox=True,
         )
 
+    elif primary_col == "model_transformer" and len(primary_vals) > 1:
+        # Special layout for transformer comparison with dynamic reference to best model
+        # Compute pivot of mean F1 by transformer
+        pivot = df.pivot_table(
+            index=["model_classifier", "n_layers"],
+            columns="model_transformer",
+            values="f1",
+            aggfunc="mean",
+        )
+        # Identify best-performing transformer per (classifier, layer)
+        best_ref = pivot.idxmax(axis=1)
+        # Compute percent difference from matryoshka to best (negative if matryoshka is worse)
+        percent_diff = (pivot[TARGET] - pivot.max(axis=1)) / pivot.max(axis=1) * 100
+
+        fig, axes = plt.subplots(
+            2,
+            2,
+            figsize=(6, 10),
+            dpi=300,
+            sharey="row",
+            gridspec_kw={
+                "height_ratios": [len(orders[0]), len(orders[1])],
+                "width_ratios": [3, 1],
+            },
+        )
+        titles = ["Modelos 3 e 33", "Demais Modelos"]
+        for row_idx, title in enumerate(titles):
+            pos0 = axes[row_idx, 0].get_position()
+            pos1 = axes[row_idx, 1].get_position()
+            mid_fig_x = (pos0.x0 + pos1.x1) / 2 - 0.05
+            rel_x = (mid_fig_x - pos0.x0) / pos0.width
+            axes[row_idx, 0].set_title(title, x=rel_x, y=1.02, fontsize="large")
+
+        # Plot left and right panels per row
+        for ax_left, ax_right, subset, order, positions, pmap in [
+            (axes[0, 0], axes[0, 1], df_top, orders[0], pos_top, map_top),
+            (axes[1, 0], axes[1, 1], df_bot, orders[1], pos_bot, map_bot),
+        ]:
+            # Left: boxplots
+            plot_panel(
+                ax_left,
+                subset,
+                order,
+                primary_col,
+                primary_vals,
+                layers,
+                positions,
+                pmap,
+                width,
+                color_map,
+                hatch_map,
+            )
+
+            # Right: dynamic difference bars
+            ax_right.set_axisbelow(True)
+            ax_right.grid(axis="x", color="#CCCCCC", ls="--", lw=0.8)
+            for y in np.arange(len(order) + 1) - 0.5:
+                ax_right.axhline(y, color="black", lw=1, zorder=0)
+
+            y_indices = np.arange(len(order))
+            bar_height = 0.3
+            offsets = {layers[0]: -bar_height / 2, layers[1]: bar_height / 2}
+            all_values: List[float] = []
+
+            for layer in layers:
+                try:
+                    layer_diff = percent_diff.xs(layer, level=1)
+                    ref_series = best_ref.xs(layer, level=1)
+                except KeyError:
+                    continue
+                layer_full = layer_diff.reindex(order)
+                ref_full = ref_series.reindex(order)
+                present = layer_full.notna()
+                values = layer_full.fillna(0).values
+                ys = y_indices + offsets[layer]
+
+                ys_present = ys[present.values]
+                vals_present = values[present.values]
+                # Color each bar by the color of the best model
+                colors = [color_map[model] for model in ref_full[present].tolist()]
+
+                if layer == layers[0]:
+                    ax_right.barh(
+                        ys_present,
+                        vals_present,
+                        height=bar_height,
+                        facecolor=colors,
+                        edgecolor="black",
+                        label=f"{layer} camada",
+                    )
+                else:
+                    ax_right.barh(
+                        ys_present,
+                        vals_present,
+                        height=bar_height,
+                        facecolor=colors,
+                        edgecolor="black",
+                        hatch=hatch_map[layer],
+                        label=f"{layer} camadas",
+                    )
+                all_values.extend(vals_present.tolist())
+
+            # Configure axes for right subplot
+            ax_right.axvline(0, ls="--", color="gray")
+            xmin = min(0, min(all_values) if all_values else 0)
+            xmax = max(0, max(all_values) if all_values else 0)
+            margin = max(abs(xmin), abs(xmax)) * 0.13
+            ax_right.set_xlim(xmin - margin, xmax + margin)
+            ax_right.set_ylim(ax_left.get_ylim())
+            ax_right.set_yticks([])
+            ax_right.tick_params(axis="y", which="both", length=0)
+            ax_right.set_xlabel("Δ F1 (%)\n(Melhor → Matryoshka)")
+
+            # Add text labels on bars
+            x_range = ax_right.get_xlim()[1] - ax_right.get_xlim()[0]
+            threshold = x_range * 0.05
+            for layer in layers:
+                try:
+                    layer_diff = percent_diff.xs(layer, level=1)
+                    ref_series = best_ref.xs(layer, level=1)
+                except KeyError:
+                    continue
+                layer_full = layer_diff.reindex(order)
+                ys = y_indices + offsets[layer]
+                present_mask = layer_full.notna().values
+                for v, y, present_flag in zip(
+                    layer_full.fillna(0).values, ys, present_mask, strict=True
+                ):
+                    if not present_flag:
+                        continue
+                    text = f"{int(v)}"
+                    if abs(v) >= threshold:
+                        x_text = v / 2
+                        ha = "center"
+                        color_txt = "white"
+                    else:
+                        x_text = v + threshold
+                        ha = "left"
+                        color_txt = "black"
+                    ax_right.text(
+                        x_text,
+                        y,
+                        text,
+                        va="center",
+                        ha=ha,
+                        fontsize="x-small",
+                        color=color_txt,
+                    )
+
+        # Y-ticks for left panels
+        for idx, order in enumerate(orders):
+            axes[idx, 0].set_yticks(np.arange(len(order)))
+            axes[idx, 0].set_yticklabels(order)
+
+        # Legend for transformer case
+        primary_handles = [
+            Patch(facecolor=color_map[p], label=attr_label_fmt.format(p))
+            for p in primary_vals
+        ]
+        layer_handles = [
+            Patch(
+                facecolor="white",
+                hatch=hatch_map[layer],
+                edgecolor="black",
+                label=f"{layer} camada{'s' if layer > 1 else ''}",
+            )
+            for layer in layers
+        ]
+        x_handle = Line2D(
+            [],
+            [],
+            marker="x",
+            color="#ed1fed",
+            ls="",
+            markersize=12,
+            label="Sem diferença entre camadas",
+        )
+        arrow_handle = Line2D([], [], color="#0b31bf", lw=1.5, label=arrow_label)
+        legend_handles = primary_handles + layer_handles + [x_handle, arrow_handle]
+        axes[1, 0].legend(
+            handles=legend_handles,
+            title="Legenda",
+            loc="lower left",
+            fontsize="small",
+            framealpha=1.0,
+            edgecolor="black",
+            fancybox=True,
+        )
+
     else:
-        # Standard layout for other primary attributes
+        # Standard layout for final or other single-primary analyses
         fig, (ax_top, ax_bottom) = plt.subplots(
             2,
             1,
@@ -583,7 +772,7 @@ def generate_figure(
     # Save figure in PNG and PGF formats
     for ext in ("png", "pgf"):
         output_path = Path("../../figures") / f"{out_name}_{dataset}.{ext}"
-        # fig.savefig(output_path, bbox_inches='tight')
+        fig.savefig(output_path, bbox_inches="tight")
 
     plt.show()
     plt.close(fig)
