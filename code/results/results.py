@@ -475,7 +475,7 @@ def generate_figure(
     for extension in ["png", "pgf"]:
         out_path = Path("../../figures") / f"{out_name}_{dataset}.{extension}"
         fig.savefig(out_path, bbox_inches="tight")
-    # plt.show()
+    plt.show()
     plt.close(fig)
     print(f"Saved: {out_path}")
 
@@ -485,30 +485,7 @@ if __name__ == "__main__":
     layers = sorted(read_summary()["n_layers"].unique())  # [1, 10]
     hatch_map = {layers[0]: "", layers[1]: "//"}
 
-    # A) transformers (n_features=16)
-    df_tr = read_summary()
-    df_tr = df_tr[
-        (df_tr["n_features"] == 16)
-        & (df_tr["model_classifier"].isin(classical_models + quantum_models))
-    ]
-    transformers = df_tr["model_transformer"].unique().tolist()
-    colors_tr = plt.cm.twilight_shifted(np.linspace(0.15, 0.45, len(transformers)))
-    cmap_tr = {t: colors_tr[i] for i, t in enumerate(transformers)}
-    for ds in DATASETS:
-        generate_figure(
-            df=df_tr[df_tr["dataset"] == ds],
-            dataset=ds,
-            primary_col="model_transformer",
-            primary_vals=transformers,
-            color_map=cmap_tr,
-            arrow_label="Sem diferença entre transformers",
-            attr_label_fmt="{}",
-            out_name="transformers",
-            layers=layers,
-            hatch_map=hatch_map,
-        )
-
-    # B) n_features: 16/32/768
+    # A) n_features: 16/32/768
     TARGET = "tomaarsen/mpnet-base-nli-matryoshka"
     feats = [16, 32, 768]
     df_ft = read_summary()
@@ -529,6 +506,29 @@ if __name__ == "__main__":
             arrow_label="Sem diferença entre n° de atributos",
             attr_label_fmt="{} atributos",
             out_name="n_features",
+            layers=layers,
+            hatch_map=hatch_map,
+        )
+
+    # B) transformers (n_features=16)
+    df_tr = read_summary()
+    df_tr = df_tr[
+        (df_tr["n_features"] == 16)
+        & (df_tr["model_classifier"].isin(classical_models + quantum_models))
+    ]
+    transformers = df_tr["model_transformer"].unique().tolist()
+    colors_tr = plt.cm.twilight_shifted(np.linspace(0.15, 0.45, len(transformers)))
+    cmap_tr = {t: colors_tr[i] for i, t in enumerate(transformers)}
+    for ds in DATASETS:
+        generate_figure(
+            df=df_tr[df_tr["dataset"] == ds],
+            dataset=ds,
+            primary_col="model_transformer",
+            primary_vals=transformers,
+            color_map=cmap_tr,
+            arrow_label="Sem diferença entre transformers",
+            attr_label_fmt="{}",
+            out_name="transformers",
             layers=layers,
             hatch_map=hatch_map,
         )
