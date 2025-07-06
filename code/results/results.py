@@ -37,8 +37,6 @@ from utils import (
     read_summary,
 )
 
-# ───────────────────────────── helpers ────────────────────────────────────────
-
 
 def pairwise_wilcoxon_holm(df: pd.DataFrame, *, alpha: float = 0.05) -> pd.DataFrame:
     """All-pairs Wilcoxon with Holm correction."""
@@ -64,7 +62,6 @@ def compute_positions(
     width: float,
     gap: float,
 ) -> tuple[list[np.ndarray], dict[tuple[str | int, int], np.ndarray]]:
-    """x-offsets for every (primary, layer)."""
     combos = [(p, layer) for p in primaries for layer in layers]
     pos, mapping = [], {}
     for pi, _ in enumerate(primaries):
@@ -83,15 +80,11 @@ def add_inner_separators(
     layers: Sequence[int],
     n_rows: int,
 ) -> None:
-    """Light grey subdivision lines between colour blocks."""
     for r in range(n_rows):
         for i in range(len(primaries) - 1):
             y_a = pos_map[(primaries[i], layers[-1])][r]
             y_b = pos_map[(primaries[i + 1], layers[0])][r]
             ax.axhline((y_a + y_b) / 2, color="#6A6A6A", lw=0.8, zorder=0, alpha=0.7)
-
-
-# ──────────────────────────── core plotter ────────────────────────────────────
 
 
 def plot_panel(
@@ -109,7 +102,6 @@ def plot_panel(
     *,
     alpha: float = 0.05,
 ) -> None:
-    """Single (top/bottom) panel, agnostic to the primary variable."""
     ax.set_axisbelow(True)
     ax.grid(axis="x", color="#CCCCCC", ls="--", lw=0.8)
     for y in np.arange(len(classifier_order) + 1) - 0.5:
@@ -129,6 +121,7 @@ def plot_panel(
         if all(len(v) == 0 for v in data):
             continue
         data = [v if len(v) else np.array([np.nan]) for v in data]
+
         bp = ax.boxplot(
             data,
             positions=positions[i],
@@ -152,8 +145,50 @@ def plot_panel(
 
     add_inner_separators(ax, pos_map, primary_vals, layers, len(classifier_order))
 
-    # Wilcoxon + Holm annotations seguem idênticos...
-    # (mantidos sem alterações)
+    # ── RESTAURADA: ANOTAÇÕES DE WILCOXON + HOLM ────────────────────────
+    for r, clf in enumerate(classifier_order):
+        piv = df[df["model_classifier"] == clf].pivot(
+            index="seed", columns=[primary_col, "n_layers"], values="f1"
+        )
+        piv.columns = pd.MultiIndex.from_tuples(piv.columns)
+
+        # × : mesma primary, camadas diferentes
+        res = pairwise_wilcoxon_holm(piv, alpha=alpha)
+        for _, row in res[~res["reject"]].iterrows():
+            (p0, l0), (p1, l1) = row["i"], row["j"]
+            if p0 == p1 and l0 != l1:
+                y0, y1 = pos_map[(p0, l0)][r], pos_map[(p1, l1)][r]
+                x_mid = (piv[(p0, l0)].median() + piv[(p1, l1)].median()) / 2
+                ax.text(
+                    x_mid,
+                    (y0 + y1) / 2,
+                    "×",
+                    ha="center",
+                    va="center",
+                    color="#ed1fed",
+                    fontsize=12,
+                    fontweight="bold",
+                    zorder=5,
+                )
+
+        # ↔ : mesmo layer, primaries diferentes
+        for layer in layers:
+            if layer not in piv.columns.get_level_values(1):
+                continue
+            sub = piv.xs(layer, level=1, axis=1)
+            res_p = pairwise_wilcoxon_holm(sub, alpha=alpha)
+            for _, row in res_p[~res_p["reject"]].iterrows():
+                p0, p1 = row["i"], row["j"]
+                y0, y1 = pos_map[(p0, layer)][r], pos_map[(p1, layer)][r]
+                m0, m1 = piv[(p0, layer)].median(), piv[(p1, layer)].median()
+                ax.annotate(
+                    "",
+                    (m1, y1),
+                    (m0, y0),
+                    arrowprops={"arrowstyle": "<->", "color": "#0b31bf", "lw": 1.5},
+                    zorder=5,
+                )
+    # ────────────────────────────────────────────────────────────────────
 
     ax.set_ylim(len(classifier_order) - 0.5, -0.5)
     ax.set_yticks(np.arange(len(classifier_order)))
@@ -287,6 +322,9 @@ def generate_figure(
             ax_r.set_xlim(xmin - margin, xmax + margin)
             ax_r.set_ylim(ax_l.get_ylim())
             ax_r.set_yticks([])
+            ax_r.tick_params(
+                axis="y", which="both", length=0
+            )  # remove os traços do eixo y
 
         for idx, order in enumerate(orders):
             axes[idx, 0].set_yticks(np.arange(len(order)))
