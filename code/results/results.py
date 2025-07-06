@@ -446,8 +446,8 @@ def generate_figure(
 
     plt.tight_layout()
     out_path = Path("../../figures") / f"{out_name}_{dataset}.pgf"
-    # fig.savefig(out_path, bbox_inches="tight")
-    plt.show()
+    fig.savefig(out_path, bbox_inches="tight")
+    # plt.show()
     plt.close(fig)
     print(f"Saved: {out_path}")
 
