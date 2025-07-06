@@ -196,9 +196,6 @@ def plot_panel(
     ax.set_xlabel("F1")
 
 
-# ──────────────────────────── figure driver ────────────────────────────────────
-
-
 def generate_figure(
     df: pd.DataFrame,
     dataset: str,
@@ -252,18 +249,17 @@ def generate_figure(
             },
         )
         titles = ["Modelos 3 e 33", "Demais Modelos"]
+
         # ── CENTRALIZA TÍTULOS SOBRE OS DOIS SUBPLOTS ────────────────────────
         for row, title in enumerate(titles):
             pos0 = axes[row, 0].get_position()
             pos1 = axes[row, 1].get_position()
-            # centro em coords de figura
             mid_fig = (pos0.x0 + pos1.x1) / 2
-            # converte para fração do eixo esquerdo
             x_rel = (mid_fig - pos0.x0) / pos0.width
             axes[row, 0].set_title(
                 title,
                 x=x_rel,
-                y=1,
+                y=1.02,
                 fontsize="large",
             )
         # ────────────────────────────────────────────────────────────────────
@@ -288,10 +284,8 @@ def generate_figure(
                 color_map,
                 hatch_map,
             )
-            # ax_l.set_title(titles[row])
 
             # Grid e linhas horizontais na direita
-            ax_r.set_xlabel("Δ F1 (%)\n(768→16)")
             ax_r.set_axisbelow(True)
             ax_r.grid(axis="x", color="#CCCCCC", ls="--", lw=0.8)
             for y in np.arange(len(order) + 1) - 0.5:
@@ -332,19 +326,45 @@ def generate_figure(
                 all_vals.extend(vals.tolist())
 
             ax_r.axvline(0, ls="--", color="gray")
-            xmin = min(0, min(all_vals)) if all_vals else 0
-            xmax = max(0, max(all_vals)) if all_vals else 0
+            xmin, xmax = min(0, min(all_vals) if all_vals else 0), max(
+                0, max(all_vals) if all_vals else 0
+            )
             margin = max(abs(xmin), abs(xmax)) * 0.1
             ax_r.set_xlim(xmin - margin, xmax + margin)
             ax_r.set_ylim(ax_l.get_ylim())
             ax_r.set_yticks([])
-            ax_r.tick_params(
-                axis="y", which="both", length=0
-            )  # remove os traços do eixo y
+            ax_r.tick_params(axis="y", which="both", length=0)
+            ax_r.set_xlabel("Δ F1 (%)\n(768→16)")
+
+            # ── EXIBE VALORES SOBRE AS BARRAS ───────────────────────────
+            rng = ax_r.get_xlim()[1] - ax_r.get_xlim()[0]
+            thresh = rng * 0.05
+            for layer in layers:
+                try:
+                    series_layer = diff.xs(layer, level=1)
+                except KeyError:
+                    continue
+                vals = series_layer.reindex(order).fillna(0).values
+                ys = y_idx + offsets[layer]
+                for v, y in zip(vals, ys, strict=True):
+                    txt = f"{int(v)}"
+                    if abs(v) >= thresh:
+                        x_txt = v / 2
+                        col = "white"
+                        ha = "center"
+                    else:
+                        x_txt = v + thresh
+                        col = "black"
+                        ha = "left"
+                    ax_r.text(
+                        x_txt, y, txt, va="center", ha=ha, fontsize="x-small", color=col
+                    )
+            # ────────────────────────────────────────────────────────────
 
         for idx, order in enumerate(orders):
             axes[idx, 0].set_yticks(np.arange(len(order)))
             axes[idx, 0].set_yticklabels(order)
+
         # 1) Legenda original na esquerda (apenas bottom-left)
         handles_primary = [
             Patch(facecolor=color_map[p], label=attr_label_fmt.format(p))
@@ -378,15 +398,6 @@ def generate_figure(
             framealpha=1.0,
             edgecolor="black",
             fancybox=True,
-        )
-
-        # 2) Legenda de diferenças na direita (apenas bottom-right, mais à esquerda)
-        axes[1, 1].legend(
-            title="Legenda",
-            loc="lower left",
-            fontsize="small",
-            framealpha=1.0,
-            edgecolor="black",
         )
 
     # ───── Layout padrão para demais primaries ───────────────────────────
@@ -461,14 +472,14 @@ def generate_figure(
         )
 
     plt.tight_layout()
-    out_path = Path("../../figures") / f"{out_name}_{dataset}.pgf"
-    # fig.savefig(out_path, bbox_inches="tight")
-    plt.show()
+    for extension in ["pdf", "pgf"]:
+        out_path = Path("../../figures") / f"{out_name}_{dataset}.{extension}"
+        fig.savefig(out_path, bbox_inches="tight")
+    # plt.show()
     plt.close(fig)
     print(f"Saved: {out_path}")
 
 
-# ─────────────────────────────── main ─────────────────────────────────────────
 if __name__ == "__main__":
     DATASETS = ("chatgpt_easy", "chatgpt_medium", "chatgpt_hard")
     layers = sorted(read_summary()["n_layers"].unique())  # [1, 10]
@@ -481,7 +492,7 @@ if __name__ == "__main__":
         & (df_tr["model_classifier"].isin(classical_models + quantum_models))
     ]
     transformers = df_tr["model_transformer"].unique().tolist()
-    colors_tr = plt.cm.Set2(np.linspace(0, 0.5, len(transformers)))
+    colors_tr = plt.cm.Set2(np.linspace(0, 0.4, len(transformers)))
     cmap_tr = {t: colors_tr[i] for i, t in enumerate(transformers)}
     for ds in DATASETS:
         generate_figure(
@@ -506,7 +517,7 @@ if __name__ == "__main__":
         & (df_ft["n_features"].isin(feats))
         & (df_ft["model_classifier"].isin(classical_models + quantum_models))
     ]
-    colors_ft = plt.cm.Set2(np.linspace(0.5, 1, len(feats)))
+    colors_ft = plt.cm.Set2(np.linspace(0.7, 1, len(feats)))
     cmap_ft = {f: colors_ft[i] for i, f in enumerate(feats)}
     for ds in DATASETS:
         generate_figure(
