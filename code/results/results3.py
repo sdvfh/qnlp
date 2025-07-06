@@ -1,29 +1,29 @@
 from pathlib import Path
 
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
-from cd import plot_critical_difference
 from aeon.visualisation.results._critical_difference import _build_cliques
+from cd import plot_critical_difference
 from scipy.stats import rankdata
 from statsmodels.stats.multitest import multipletests
 from utils import classical_ensemble_models, classical_models, read_summary
 
-import matplotlib as mpl
-
-mpl.rcParams.update({
-    "pgf.texsystem": "pdflatex",
-    "text.usetex": True,
-    "pgf.rcfonts": False,
-    "pgf.preamble": (
-        # tudo numa única string, não numa lista
-        r"\usepackage[T1]{fontenc} "
-        r"\usepackage[utf8]{inputenc} "
-        # tratar '_' como caractere normal
-        r"\catcode`\_=12\relax "
-        # definir macro \_ para imprimir underscore
-        r"\def\_{\_}"
-    ),
-})
+mpl.rcParams.update(
+    {
+        "pgf.texsystem": "pdflatex",
+        "text.usetex": True,
+        "pgf.rcfonts": False,
+        "pgf.preamble": (
+            # tudo numa única string, não numa lista
+            r"\usepackage[T1]{fontenc} "
+            r"\usepackage[utf8]{inputenc} "
+            r"\catcode`\_=12\relax "
+            # definir macro \_ para imprimir underscore
+            r"\def\_{\_}"
+        ),
+    }
+)
 
 # ─────────── Configuração ───────────
 DATASETS = ("chatgpt_easy", "chatgpt_medium", "chatgpt_hard", "sst")
@@ -142,7 +142,7 @@ for ds in DATASETS:
         scores_filt = scores_filt[:, mask]
         labels_filt = [lbl for lbl in labels_filt if lbl not in to_drop]
 
-    labels_filt = [lbl.replace('_', r'\_') for lbl in labels_filt]
+    labels_filt = [lbl.replace("_", r"\_") for lbl in labels_filt]
 
     # 13) gera o CD‐plot final
     fig2, ax2 = plot_critical_difference(
@@ -159,7 +159,9 @@ for ds in DATASETS:
 
     # 14) ajusta posição e DPI
     pos = ax2.get_position()
-    ax2.set_position([pos.x0 - 0.08, pos.y0 + 0.05, pos.width + 0.13, pos.height - 0.05])
+    ax2.set_position(
+        [pos.x0 - 0.08, pos.y0 + 0.05, pos.width + 0.13, pos.height - 0.05]
+    )
     # ax2.set_position([0.00, 0.00, 1.00, 0.95])
     fig2.set_size_inches(7, 7, forward=True)
     fig2.set_dpi(300)
@@ -167,9 +169,16 @@ for ds in DATASETS:
     out_dir = Path("../../figures")
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    pgf_path = out_dir / f"cd_{ds}.pgf"
     fig2.tight_layout()
-    fig2.savefig(pgf_path, bbox_inches="tight",  pad_inches=0,)
-    # plt.show()
-    print(f"Salvo: cd_{ds}.pdf")
+    out_name = "cd"
+    # Save figure in PNG, PGF and PDF formats
+    for ext in ("png", "pgf", "pdf"):
+        output_path = Path("../../figures") / f"{out_name}_{ds}.{ext}"
+        fig2.savefig(
+            output_path,
+            bbox_inches="tight",
+            pad_inches=0,
+        )
 
+    plt.show()
+    print(f"Salvo: cd_{ds}.pdf")
