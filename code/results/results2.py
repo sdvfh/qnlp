@@ -8,6 +8,8 @@ from matplotlib.transforms import offset_copy
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes, mark_inset
 from utils import models, read_summary
 
+pd.set_option("future.no_silent_downcasting", True)
+
 # --------------------------------------------------------------------- #
 #                             CONFIGURAÇÃO                              #
 # --------------------------------------------------------------------- #
@@ -136,8 +138,8 @@ def plot_dataset(dataset: str) -> None:
         arrowprops={"arrowstyle": "<->", "lw": 1.5, "color": "black"},
         annotation_clip=False,
     )
-    ax.text(-0.20, 1.02, "Baixa Exp", transform=ax.transAxes, ha="center", va="bottom")
-    ax.text(-0.20, -0.02, "Alta Exp", transform=ax.transAxes, ha="center", va="top")
+    ax.text(-0.20, 1.02, "Baixa Exp.", transform=ax.transAxes, ha="center", va="bottom")
+    ax.text(-0.20, -0.02, "Alta Exp.", transform=ax.transAxes, ha="center", va="top")
 
     # legenda de camadas
     ax.legend(title="Legenda")
@@ -181,10 +183,15 @@ def plot_dataset(dataset: str) -> None:
     out_dir = Path("../../figures")
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    pgf_path = out_dir / f"ent_exp_f1_{dataset}.pgf"
-    fig.savefig(pgf_path, bbox_inches="tight")
+    out_name = "ent_exp_f1"
+    # Save figure in PNG, PGF and PDF formats
+    for ext in ("png", "pgf", "pdf"):
+        output_path = Path("../../figures") / f"{out_name}_{dataset}.{ext}"
+        fig.savefig(output_path)
+
+    plt.show()
     plt.close(fig)
-    print(f"Saved: {pgf_path.name} (+ PNGs)")
+    print(f"Saved: {output_path.name} (+ PNGs)")
 
 
 if __name__ == "__main__":
