@@ -604,7 +604,7 @@ if __name__ == "__main__":
         & (df_ft["n_features"].isin(feature_values))
         & (df_ft["model_classifier"].isin(classical_models + quantum_models))
     ]
-    colors_ft = plt.cm.twilight_shifted(np.linspace(0.70, 0.90, len(feature_values)))
+    colors_ft = plt.cm.twilight_shifted(np.linspace(0.60, 0.80, len(feature_values)))
     color_map_ft = {val: colors_ft[i] for i, val in enumerate(feature_values)}
     for ds in DATASETS:
         generate_figure(
