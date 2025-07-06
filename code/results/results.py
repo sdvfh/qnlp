@@ -173,9 +173,9 @@ def plot_panel(
     """
     # Configure grid and separators
     ax.set_axisbelow(True)
-    ax.grid(axis="x", color="#CCCCCC", ls="--", lw=0.8)
+    ax.grid(axis="x", color="#CCCCCC", ls="--", lw=0.8, zorder=0)
     for y in np.arange(len(classifier_order) + 1) - 0.5:
-        ax.axhline(y, color="black", lw=1, zorder=0)
+        ax.axhline(y, color="black", lw=1, zorder=1)
 
     # Draw each boxplot group
     combos = [(p, layer) for p in primary_vals for layer in layers]
@@ -770,7 +770,7 @@ def generate_figure(
 
     plt.tight_layout()
     # Save figure in PNG and PGF formats
-    for ext in ("png", "pgf"):
+    for ext in ("png", "pgf", "pdf"):
         output_path = Path("../../figures") / f"{out_name}_{dataset}.{ext}"
         fig.savefig(output_path, bbox_inches="tight")
 
