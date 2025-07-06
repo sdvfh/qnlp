@@ -47,6 +47,8 @@ from matplotlib.patches import Patch
 from utils import models  # mapeia id → label (usado no CSV de medidas)
 from utils import read_summary
 
+pd.set_option("future.no_silent_downcasting", True)
+
 # ───────────────────────── CONFIGURAÇÃO GERAL ───────────────────────────────
 CSV_MEASURES = Path("../../results/measures_all.csv")
 LAYERS = (1, 10)
@@ -242,11 +244,16 @@ def generate_measure_figure(
 
     out_dir = Path("../../figures")
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"{out_name}_all.pgf"
-    # plt.show()
-    fig.savefig(out_path, bbox_inches="tight")
+
+    out_name = "ent_exp_f1"
+    # Save figure in PNG, PGF and PDF formats
+    for ext in ("png", "pgf", "pdf"):
+        output_path = Path("../../figures") / f"{out_name}_all.{ext}"
+        fig.savefig(output_path, bbox_inches="tight")
+
+    plt.show()
     plt.close(fig)
-    print(f"Saved: {out_path}")
+    print(f"Saved: {output_path}")
 
 
 # ────────────────────────────────── main ─────────────────────────────────────
