@@ -245,7 +245,6 @@ def generate_measure_figure(
     out_dir = Path("../../figures")
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    out_name = "ent_exp_f1"
     # Save figure in PNG, PGF and PDF formats
     for ext in ("png", "pgf", "pdf"):
         output_path = Path("../../figures") / f"{out_name}_all.{ext}"
