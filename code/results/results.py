@@ -499,7 +499,7 @@ def generate_figure(
             title="Legenda",
             loc="lower left",
             fontsize="small",
-            framealpha=1.0,
+            framealpha=0.85,
             edgecolor="black",
             fancybox=True,
         )
@@ -688,7 +688,7 @@ def generate_figure(
             title="Legenda",
             loc="lower left",
             fontsize="small",
-            framealpha=1.0,
+            framealpha=0.85,
             edgecolor="black",
             fancybox=True,
         )
@@ -763,7 +763,7 @@ def generate_figure(
             title="Legenda",
             loc="lower left",
             fontsize="small",
-            framealpha=1.0,
+            framealpha=0.85,
             edgecolor="black",
             fancybox=True,
         )
