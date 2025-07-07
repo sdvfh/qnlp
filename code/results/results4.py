@@ -205,8 +205,8 @@ def generate_measure_figure(
             arrowprops={"arrowstyle": "<->", "lw": 1.5, "color": "black"},
             annotation_clip=False,
         )
-        ax.text(0, -0.08, "Alta Exp", transform=ax.transAxes, ha="left", va="top")
-        ax.text(1, -0.08, "Baixa Exp", transform=ax.transAxes, ha="right", va="top")
+        ax.text(0, -0.08, "Alta Exp.", transform=ax.transAxes, ha="left", va="top")
+        ax.text(1, -0.08, "Baixa Exp.", transform=ax.transAxes, ha="right", va="top")
 
     # prepara handles de legenda
     handles_prep = [
@@ -235,7 +235,7 @@ def generate_measure_figure(
         title="Legenda",
         loc=legend_loc,
         fontsize="small",
-        framealpha=1.0,
+        framealpha=0.85,
         edgecolor="black",
         fancybox=True,
     )
