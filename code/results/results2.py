@@ -87,8 +87,17 @@ def plot_dataset(dataset: str) -> None:
     df_meas = pd.read_csv(CSV_MEASURES)
     df_meas["model"] = df_meas["model"].replace(models)
     df_meas = df_meas[df_meas["with_state_prep"]]
+    batch_override = {"sst": 512}
+    df_runs = read_summary()
 
-    df_runs = read_summary().query("dataset == @dataset")
+    mask = (
+        (df_runs["dataset"] == ds)
+        & (df_runs["model_transformer"] == "tomaarsen/mpnet-base-nli-matryoshka")
+        & (df_runs["n_features"] == 16)
+    )
+    if ds in batch_override:
+        mask &= df_runs["batch_size"].eq(batch_override[ds])
+    df_runs = df_runs[mask]
 
     df = (
         df_meas.merge(

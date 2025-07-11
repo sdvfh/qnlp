@@ -43,13 +43,17 @@ def format_label(mc: int, nl: int) -> str:
         return f"{mc}_{nl}"
 
 
+batch_override = {"sst": 512}
 for ds in DATASETS:
     # 1) filtra
-    df = df_all[
+    mask = (
         (df_all["dataset"] == ds)
         & (df_all["model_transformer"] == "tomaarsen/mpnet-base-nli-matryoshka")
-        & (df_all["n_qubits"] == 4)
-    ]
+        & (df_all["n_features"] == 16)
+    )
+    if ds in batch_override:
+        mask &= df_all["batch_size"].eq(batch_override[ds])
+    df = df_all[mask]
 
     # 2) pivot
     pivot = df.pivot_table(
