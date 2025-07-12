@@ -447,7 +447,7 @@ def generate_figure(
                 for v, y, present_flag in zip(values, ys, present_mask, strict=True):
                     if not present_flag:
                         continue
-                    text = f"{int(v)}"
+                    text = f"{int(np.round(v))}"
                     if abs(v) >= threshold:
                         x_text = v / 2
                         ha = "center"
