@@ -974,14 +974,14 @@ if __name__ == "__main__":
             layers=layers,
             hatch_map=hatch_map,
         )
-        # transcribe_figure_to_csv(
-        #     df=df_ft[df_ft["dataset"] == ds],
-        #     dataset=ds,
-        #     primary_col="model_transformer",
-        #     primary_vals=transformers,
-        #     layers=layers,
-        #     out_csv=f"../../figures/transformers_{ds}.csv",
-        # )
+        transcribe_figure_to_csv(
+            df=df_tr[df_tr["dataset"] == ds],
+            dataset=ds,
+            primary_col="model_transformer",
+            primary_vals=transformers,
+            layers=layers,
+            out_csv=f"../../figures/transformers_{ds}.csv",
+        )
 
     # C) Final analysis: 1 vs 10 layers for all models
     DATASETS_FINAL = (*DATASETS, "sst")
