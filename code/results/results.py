@@ -20,6 +20,7 @@ Features:
 from __future__ import annotations
 
 import itertools
+import json
 from pathlib import Path
 from typing import Dict, List, Sequence, Tuple
 
@@ -27,6 +28,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from matplotlib.axes import Axes
+from matplotlib.cbook import boxplot_stats
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
 from scipy.stats import wilcoxon
@@ -779,6 +781,139 @@ def generate_figure(
     print(f"Saved: {output_path}")
 
 
+def transcribe_figure_to_csv(
+    df: pd.DataFrame,
+    dataset: str,
+    primary_col: str,
+    primary_vals: Sequence[str | int],
+    layers: Sequence[int],
+    out_csv: str,
+    alpha: float = 0.05,
+) -> None:
+    """
+    Gera um CSV com uma linha para cada combinação
+    (model_classifier, primary_val, n_layers) contendo:
+      - estatísticas de boxplot (whislo, q1, med, q3, whishi)
+      - outliers à esquerda e à direita
+      - observações sobre testes de Wilcoxon+Holm (não-diferenças)
+      - valor da diferença percentual (direito) e, no caso de transformer,
+        qual o modelo de referência melhor.
+    """
+    records = []
+    # prepara análises estatísticas globais por classifier
+    for clf in sorted(df["model_classifier"].unique()):
+        sub = df[df["model_classifier"] == clf]
+        # Pivot para Wilcoxon
+        pivot = sub.pivot_table(
+            index="seed",
+            columns=[primary_col, "n_layers"],
+            values="f1",
+        ).dropna(how="all", axis=1)
+
+        # tests = pairwise(pivot)
+        tests = pairwise_wilcoxon_holm(pivot, alpha=alpha)
+        tests = tests[["i", "j", "reject"]].to_dict(orient="records")
+        tests = [[row["i"], row["j"], row["reject"]] for row in tests]
+
+        # calcula percent_diff e best_ref se for caso transformer
+        if primary_col == "model_transformer" and len(primary_vals) > 1:
+            piv2 = sub.pivot_table(
+                index=["model_classifier", "n_layers"],
+                columns="model_transformer",
+                values="f1",
+                aggfunc="mean",
+            )
+            best_ref = piv2.idxmax(axis=1)
+            pct_diff = (piv2[TARGET] - piv2.max(axis=1)) / piv2.max(axis=1) * 100
+        elif primary_col == "n_features":
+            piv2 = sub.pivot_table(
+                index=["model_classifier", "n_layers"],
+                columns="n_features",
+                values="f1",
+                aggfunc="mean",
+            )
+            pct_diff = (
+                (piv2[primary_vals[0]] - piv2[primary_vals[-1]])
+                / piv2[primary_vals[0]]
+                * 100
+            )
+            best_ref = None
+        else:
+            pct_diff = pd.Series(dtype=float)
+            best_ref = None
+
+        # percorre grupos
+        for p in primary_vals:
+            for layer in layers:
+                vals = (
+                    sub.loc[(sub[primary_col] == p) & (sub["n_layers"] == layer), "f1"]
+                    .dropna()
+                    .to_numpy(dtype=float)
+                )
+                if vals.size == 0:
+                    continue
+                # boxplot_stats
+                stats = boxplot_stats(vals, whis=1.5)[0]
+                whislo = round(stats["whislo"], 4)
+                q1 = round(stats["q1"], 4)
+                med = round(stats["med"], 4)
+                q3 = round(stats["q3"], 4)
+                whishi = round(stats["whishi"], 4)
+                fliers = [round(float(x), 4) for x in stats["fliers"]]
+                left = [x for x in fliers if x < whislo]
+                right = [x for x in fliers if x > whishi]
+
+                # observações
+                obs = []
+                for i_col, j_col, reject in tests:
+                    # mesmo primary, testes de camada
+                    if (
+                        not reject
+                        and i_col[0] == p == j_col[0]
+                        and i_col[1] != j_col[1]
+                    ):
+                        obs.append("sem diferença entre layers (n_layers = 1 ou = 10)")
+                    # mesmo layer, primaries
+                    if (
+                        not reject
+                        and i_col[1] == layer == j_col[1]
+                        and i_col[0] != j_col[0]
+                    ):
+                        obs.append(
+                            f"sem diferença entre {i_col[0]} vs {j_col[0]} com n_layer = {layer}"
+                        )
+                obs_txt = "; ".join(sorted(set(obs)))
+
+                # valor de diferença
+                diff = pct_diff.get((clf, layer), np.nan)
+                diff = round(float(diff), 4) if not np.isnan(diff) else ""
+                best = best_ref.get((clf, layer), "") if best_ref is not None else ""
+
+                records.append(
+                    {
+                        "model_classifier": clf,
+                        primary_col: p,
+                        "n_layers": layer,
+                        "whislo": whislo,
+                        "q1": q1,
+                        "median": med,
+                        "q3": q3,
+                        "whishi": whishi,
+                        "outliers_left": json.dumps(left, ensure_ascii=False),
+                        "outliers_right": json.dumps(right, ensure_ascii=False),
+                        "observacoes": obs_txt,
+                        "pct_diff": diff,
+                        **({"best_model": best} if best_ref is not None else {}),
+                    }
+                )
+
+    df_out = pd.DataFrame.from_records(records)
+    # salva CSV
+    Path(out_csv).parent.mkdir(parents=True, exist_ok=True)
+    df_out.to_csv(out_csv, index=False, float_format="%.4f")
+    print(f"[transcribe] salvo em {out_csv}")
+
+
 if __name__ == "__main__":
     DATASETS = ("chatgpt_easy", "chatgpt_medium", "chatgpt_hard")
     layers = sorted(read_summary()["n_layers"].unique())  # e.g., [1, 10]
@@ -808,6 +943,14 @@ if __name__ == "__main__":
             layers=layers,
             hatch_map=hatch_map,
         )
+        transcribe_figure_to_csv(
+            df=df_ft[df_ft["dataset"] == ds],
+            dataset=ds,
+            primary_col="n_features",
+            primary_vals=feature_values,
+            layers=layers,
+            out_csv=f"../../figures/n_features_{ds}.csv",
+        )
 
     # B) Varying transformer models with fixed feature count
     df_tr = read_summary()
@@ -831,6 +974,14 @@ if __name__ == "__main__":
             layers=layers,
             hatch_map=hatch_map,
         )
+        # transcribe_figure_to_csv(
+        #     df=df_ft[df_ft["dataset"] == ds],
+        #     dataset=ds,
+        #     primary_col="model_transformer",
+        #     primary_vals=transformers,
+        #     layers=layers,
+        #     out_csv=f"../../figures/transformers_{ds}.csv",
+        # )
 
     # C) Final analysis: 1 vs 10 layers for all models
     DATASETS_FINAL = (*DATASETS, "sst")
@@ -865,3 +1016,11 @@ if __name__ == "__main__":
             layers=layers,
             hatch_map=hatch_map,
         )
+        # transcribe_figure_to_csv(
+        #     df=df_ft[df_ft["dataset"] == ds],
+        #     dataset=ds,
+        #     primary_col="model_transformer",
+        #     primary_vals=[TARGET],
+        #     layers=layers,
+        #     out_csv=f"../../figures/transformers_{ds}.csv",
+        # )
