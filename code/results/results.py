@@ -1016,11 +1016,11 @@ if __name__ == "__main__":
             layers=layers,
             hatch_map=hatch_map,
         )
-        # transcribe_figure_to_csv(
-        #     df=df_ft[df_ft["dataset"] == ds],
-        #     dataset=ds,
-        #     primary_col="model_transformer",
-        #     primary_vals=[TARGET],
-        #     layers=layers,
-        #     out_csv=f"../../figures/transformers_{ds}.csv",
-        # )
+        transcribe_figure_to_csv(
+            df=df_subset,
+            dataset=ds,
+            primary_col="model_transformer",
+            primary_vals=[TARGET],
+            layers=layers,
+            out_csv=f"../../figures/f1_layers_{ds}.csv",
+        )
