@@ -1,0 +1,112 @@
+model_classifier,n_features,n_layers,whislo,q1,median,q3,whishi,outliers_left,outliers_right,observacoes,pct_diff
+1,16,1,0.7407,0.7407,0.7407,0.7407,0.7407,[0.7273],"[0.7636, 0.75, 0.75, 0.7636, 0.7636, 0.75, 0.75]",sem diferença entre layers (n_layers = 1 ou = 10),-19.4844
+1,16,10,0.7143,0.7407,0.7407,0.7636,0.7778,[],[0.8],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre layers (n_layers = 1 ou = 10),-21.8177
+1,32,1,0.7391,0.7600,0.7755,0.7755,0.7917,[],[],sem diferença entre layers (n_layers = 1 ou = 10),-19.4844
+1,32,10,0.7059,0.7451,0.7600,0.7755,0.7917,[],[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre layers (n_layers = 1 ou = 10),-21.8177
+1,768,1,0.7826,0.8622,0.8980,0.9259,0.9804,[],[],sem diferença entre layers (n_layers = 1 ou = 10),-19.4844
+1,768,10,0.8772,0.9057,0.9091,0.9259,0.9388,[0.8085],"[0.96, 0.96]",sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre layers (n_layers = 1 ou = 10),-21.8177
+2,16,1,0.7200,0.7451,0.7451,0.7669,0.7925,[],[],,-25.6859
+2,16,10,0.7925,0.7925,0.7925,0.7925,0.7925,"[0.7692, 0.7843, 0.7692, 0.7692, 0.7692, 0.7843]","[0.8148, 0.8077, 0.8077, 0.8148, 0.8077]",,-17.8634
+2,32,1,0.8846,0.8846,0.8846,0.9057,0.9057,[],[],,-25.6859
+2,32,10,0.8679,0.8721,0.8846,0.8846,0.9020,"[0.8462, 0.8519]",[0.92],,-17.8634
+2,768,1,0.9362,0.9388,0.9412,0.9434,0.9434,"[0.9259, 0.9231]","[0.96, 0.96, 0.9615, 0.96, 0.96, 0.96, 0.96]",,-25.6859
+2,768,10,0.8980,0.9238,0.9400,0.9412,0.9615,[0.8846],[],,-17.8634
+3,16,1,0.4000,0.4000,0.4000,0.4000,0.4000,"[0.3922, 0.3922, 0.3922]",[],sem diferença entre layers (n_layers = 1 ou = 10),-25.1562
+3,16,10,0.4000,0.4000,0.4000,0.4000,0.4000,"[0.3922, 0.3922, 0.3922, 0.3922]",[],sem diferença entre layers (n_layers = 1 ou = 10),-26.7309
+3,32,1,0.3529,0.3529,0.3529,0.3529,0.3529,"[0.32, 0.32, 0.32, 0.32, 0.32, 0.32]",[],sem diferença entre layers (n_layers = 1 ou = 10),-25.1562
+3,32,10,0.3529,0.3529,0.3529,0.3529,0.3529,"[0.32, 0.32, 0.32, 0.32, 0.32]",[],sem diferença entre layers (n_layers = 1 ou = 10),-26.7309
+3,768,1,0.4906,0.5000,0.5045,0.5098,0.5185,"[0.449, 0.4444, 0.449, 0.449]",[],sem diferença entre layers (n_layers = 1 ou = 10),-25.1562
+3,768,10,0.4906,0.5000,0.5000,0.5098,0.5185,[],[0.5263],sem diferença entre layers (n_layers = 1 ou = 10),-26.7309
+4,16,1,0.7407,0.7407,0.7407,0.7477,0.7500,[0.7273],"[0.7636, 0.7636, 0.7636, 0.7636]",,-18.3691
+4,16,10,0.8333,0.8571,0.8800,0.9200,0.9200,[],[],sem diferença entre 16 vs 32 com n_layer = 10,-8.3166
+4,32,1,0.7391,0.7600,0.7755,0.7755,0.7755,"[0.5, 0.6383]",[],,-18.3691
+4,32,10,0.8846,0.8846,0.8846,0.8846,0.8846,"[0.8519, 0.8679, 0.8679, 0.8679, 0.8679]","[0.902, 0.902, 0.902, 0.902, 0.9167, 0.902, 0.9412]",sem diferença entre 16 vs 32 com n_layer = 10,-8.3166
+4,768,1,0.7556,0.8271,0.9018,0.9259,0.9796,[],[],,-18.3691
+4,768,10,0.9200,0.9394,0.9600,0.9796,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10,-8.3166
+5,16,1,0.8571,0.8935,0.9200,0.9200,0.9200,"[0.8163, 0.8235, 0.8333]",[],sem diferença entre layers (n_layers = 1 ou = 10),-4.2956
+5,16,10,0.8077,0.8571,0.8890,0.9200,0.9388,[],[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre layers (n_layers = 1 ou = 10),-7.0676
+5,32,1,0.9231,0.9231,0.9231,0.9231,0.9231,"[0.9057, 0.9057]","[0.9412, 0.9434, 0.9412, 0.9434, 0.9412, 0.9434]",,-4.2956
+5,32,10,0.8679,0.8721,0.8846,0.8846,0.9020,[0.8462],"[0.9167, 0.913]",sem diferença entre 16 vs 32 com n_layer = 10,-7.0676
+5,768,1,0.9388,0.9388,0.9412,0.9434,0.9434,"[0.9259, 0.9259, 0.9231, 0.9259]","[0.96, 0.96, 0.96, 0.96]",sem diferença entre layers (n_layers = 1 ou = 10),-4.2956
+5,768,10,0.9200,0.9394,0.9412,0.9612,0.9804,[],"[1.0, 1.0, 1.0]",sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre layers (n_layers = 1 ou = 10),-7.0676
+6,16,1,0.8000,0.8000,0.8000,0.8000,0.8000,[],[0.8333],sem diferença entre 16 vs 768 com n_layer = 1,-0.0993
+6,16,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre 16 vs 768 com n_layer = 10; sem diferença entre 32 vs 768 com n_layer = 10,0.0000
+6,32,1,0.7826,0.8021,0.8333,0.8333,0.8511,[],[],sem diferença entre 16 vs 768 com n_layer = 1,-0.0993
+6,32,10,1.0000,1.0000,1.0000,1.0000,1.0000,[0.9796],[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre 16 vs 768 com n_layer = 10; sem diferença entre 32 vs 768 com n_layer = 10,0.0000
+6,768,1,0.7719,0.7925,0.8077,0.8085,0.8261,"[0.7636, 0.7586]","[0.8333, 0.8333, 0.8333, 0.8333]",sem diferença entre 16 vs 768 com n_layer = 1,-0.0993
+6,768,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre 16 vs 768 com n_layer = 10; sem diferença entre 32 vs 768 com n_layer = 10,0.0000
+7,16,1,0.7347,0.7347,0.7347,0.7451,0.7600,[],[],,-23.7588
+7,16,10,0.8333,0.8571,0.8571,0.9200,0.9200,[],[],,-7.9336
+7,32,1,0.9362,0.9388,0.9388,0.9534,0.9583,[],[],,-23.7588
+7,32,10,0.8235,0.8476,0.8519,0.8679,0.8846,[],"[0.9167, 0.9167]",,-7.9336
+7,768,1,0.8889,0.9167,0.9200,0.9388,0.9388,"[0.8696, 0.8636, 0.8636, 0.8696]",[],,-23.7588
+7,768,10,0.9231,0.9412,0.9423,0.9612,0.9804,[],"[1.0, 1.0]",,-7.9336
+8,16,1,0.8571,0.8571,0.8750,0.8750,0.8846,[],[],,-2.9102
+8,16,10,0.9600,0.9796,0.9800,1.0000,1.0000,[],[],sem diferença entre 32 vs 768 com n_layer = 10,-1.1645
+8,32,1,0.8214,0.8214,0.8214,0.8280,0.8364,"[0.7692, 0.7407]","[0.8421, 0.8519, 0.8421]",,-2.9102
+8,32,10,1.0000,1.0000,1.0000,1.0000,1.0000,"[0.9804, 0.9796, 0.9796]",[],sem diferença entre 32 vs 768 com n_layer = 10,-1.1645
+8,768,1,0.8846,0.8889,0.8980,0.8980,0.9057,"[0.8627, 0.8261, 0.8727]","[0.9231, 0.92, 0.92]",,-2.9102
+8,768,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 32 vs 768 com n_layer = 10,-1.1645
+9,16,1,0.9200,0.9200,0.9200,0.9200,0.9200,"[0.898, 0.898]",[],,-7.6721
+9,16,10,1.0000,1.0000,1.0000,1.0000,1.0000,"[0.9796, 0.9796]",[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre 16 vs 768 com n_layer = 10; sem diferença entre 32 vs 768 com n_layer = 10,-0.1362
+9,32,1,0.8627,0.8627,0.8627,0.8846,0.9020,[],[],,-7.6721
+9,32,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre 16 vs 768 com n_layer = 10; sem diferença entre 32 vs 768 com n_layer = 10,-0.1362
+9,768,1,0.9583,0.9796,1.0000,1.0000,1.0000,[],[],,-7.6721
+9,768,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre 16 vs 768 com n_layer = 10; sem diferença entre 32 vs 768 com n_layer = 10,-0.1362
+10,16,1,0.8333,0.8571,0.8800,0.8800,0.9020,[],[],sem diferença entre 16 vs 768 com n_layer = 1,2.2280
+10,16,10,0.9583,0.9796,1.0000,1.0000,1.0000,[],[],sem diferença entre 32 vs 768 com n_layer = 10,-0.8959
+10,32,1,0.8980,0.8980,0.8980,0.8980,0.8980,[],[],sem diferença entre 16 vs 768 com n_layer = 1,2.2280
+10,32,10,1.0000,1.0000,1.0000,1.0000,1.0000,[0.9796],[],sem diferença entre 32 vs 768 com n_layer = 10,-0.8959
+10,768,1,0.7556,0.8206,0.8636,0.8841,0.9388,[0.7143],[],sem diferença entre 16 vs 768 com n_layer = 1,2.2280
+10,768,10,1.0000,1.0000,1.0000,1.0000,1.0000,[0.9796],[],sem diferença entre 32 vs 768 com n_layer = 10,-0.8959
+11,16,1,0.8000,0.8000,0.8000,0.8000,0.8000,[],"[0.8235, 0.8235, 0.8235, 0.8235, 0.8235]",sem diferença entre 32 vs 768 com n_layer = 1,-20.1833
+11,16,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre 16 vs 768 com n_layer = 10; sem diferença entre 32 vs 768 com n_layer = 10,0.0000
+11,32,1,0.9412,0.9412,0.9615,0.9615,0.9615,[],[],sem diferença entre 32 vs 768 com n_layer = 1,-20.1833
+11,32,10,1.0000,1.0000,1.0000,1.0000,1.0000,[0.9796],[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre 16 vs 768 com n_layer = 10; sem diferença entre 32 vs 768 com n_layer = 10,0.0000
+11,768,1,0.9388,0.9600,0.9615,0.9804,1.0000,[0.9091],[],sem diferença entre 32 vs 768 com n_layer = 1,-20.1833
+11,768,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre 16 vs 768 com n_layer = 10; sem diferença entre 32 vs 768 com n_layer = 10,0.0000
+12,16,1,0.7273,0.7407,0.7407,0.7500,0.7636,[],[],,-19.1993
+12,16,10,0.9583,0.9796,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10,-1.0950
+12,32,1,0.7500,0.7600,0.7755,0.7755,0.7755,[],[],,-19.1993
+12,32,10,0.9600,0.9600,0.9804,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10,-1.0950
+12,768,1,0.7556,0.8571,0.8951,0.9259,0.9600,[],[],,-19.1993
+12,768,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10,-1.0950
+13,16,1,0.9130,0.9167,0.9362,0.9388,0.9600,[],[0.9804],,-5.2587
+13,16,10,0.9583,0.9600,0.9796,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10,-1.9289
+13,32,1,0.8800,0.8980,0.9183,0.9200,0.9412,[],[0.9615],,-5.2587
+13,32,10,0.9600,0.9796,0.9804,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10,-1.9289
+13,768,1,0.9583,0.9798,0.9804,1.0000,1.0000,"[0.9412, 0.9388]",[],,-5.2587
+13,768,10,1.0000,1.0000,1.0000,1.0000,1.0000,"[0.9804, 0.9804, 0.9796]",[],sem diferença entre 16 vs 32 com n_layer = 10,-1.9289
+14,16,1,0.8980,0.8980,0.9200,0.9200,0.9200,[],[],,-2.5896
+14,16,10,1.0000,1.0000,1.0000,1.0000,1.0000,"[0.9796, 0.9804, 0.9796, 0.9796]",[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre 16 vs 768 com n_layer = 10; sem diferença entre 32 vs 768 com n_layer = 10,-0.2702
+14,32,1,0.8750,0.8797,0.8980,0.8980,0.8980,[],[],,-2.5896
+14,32,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre 16 vs 768 com n_layer = 10; sem diferença entre 32 vs 768 com n_layer = 10,-0.2702
+14,768,1,0.9388,0.9388,0.9388,0.9412,0.9412,"[0.9167, 0.8936, 0.9167, 0.9167, 0.92, 0.92, 0.9231]","[0.96, 0.96, 0.96]",,-2.5896
+14,768,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre 16 vs 768 com n_layer = 10; sem diferença entre 32 vs 768 com n_layer = 10,-0.2702
+15,16,1,0.9796,0.9796,0.9796,0.9796,0.9796,"[0.9583, 0.9362, 0.96, 0.96, 0.96, 0.96]","[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]",sem diferença entre 16 vs 32 com n_layer = 1,-2.1549
+15,16,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre 16 vs 768 com n_layer = 10; sem diferença entre 32 vs 768 com n_layer = 10,0.0000
+15,32,1,0.9600,0.9649,0.9804,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1,-2.1549
+15,32,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre 16 vs 768 com n_layer = 10; sem diferença entre 32 vs 768 com n_layer = 10,0.0000
+15,768,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre layers (n_layers = 1 ou = 10),-2.1549
+15,768,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 10; sem diferença entre 16 vs 768 com n_layer = 10; sem diferença entre 32 vs 768 com n_layer = 10; sem diferença entre layers (n_layers = 1 ou = 10),0.0000
+32,16,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre 16 vs 768 com n_layer = 1; sem diferença entre 32 vs 768 com n_layer = 1,0.0000
+32,32,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre 16 vs 768 com n_layer = 1; sem diferença entre 32 vs 768 com n_layer = 1,0.0000
+32,768,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre 16 vs 768 com n_layer = 1; sem diferença entre 32 vs 768 com n_layer = 1,0.0000
+33,16,1,0.5581,0.6772,0.7454,0.8091,1.0000,"[0.0, 0.4375, 0.0, 0.2143, 0.2143]",[],,-49.4383
+33,32,1,0.7600,0.8651,0.8980,0.9528,1.0000,[],[],,-49.4383
+33,768,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],,-49.4383
+34,16,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre 16 vs 768 com n_layer = 1; sem diferença entre 32 vs 768 com n_layer = 1,0.0000
+34,32,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre 16 vs 768 com n_layer = 1; sem diferença entre 32 vs 768 com n_layer = 1,0.0000
+34,768,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre 16 vs 768 com n_layer = 1; sem diferença entre 32 vs 768 com n_layer = 1,0.0000
+35,16,1,0.9796,0.9796,0.9796,1.0000,1.0000,[],[],sem diferença entre 32 vs 768 com n_layer = 1,-1.4493
+35,32,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 32 vs 768 com n_layer = 1,-1.4493
+35,768,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 32 vs 768 com n_layer = 1,-1.4493
+36,16,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre 16 vs 768 com n_layer = 1; sem diferença entre 32 vs 768 com n_layer = 1,0.0000
+36,32,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre 16 vs 768 com n_layer = 1; sem diferença entre 32 vs 768 com n_layer = 1,0.0000
+36,768,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre 16 vs 768 com n_layer = 1; sem diferença entre 32 vs 768 com n_layer = 1,0.0000
+37,16,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre 16 vs 768 com n_layer = 1; sem diferença entre 32 vs 768 com n_layer = 1,0.0000
+37,32,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre 16 vs 768 com n_layer = 1; sem diferença entre 32 vs 768 com n_layer = 1,0.0000
+37,768,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre 16 vs 768 com n_layer = 1; sem diferença entre 32 vs 768 com n_layer = 1,0.0000
+38,16,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre 16 vs 768 com n_layer = 1; sem diferença entre 32 vs 768 com n_layer = 1,0.0000
+38,32,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre 16 vs 768 com n_layer = 1; sem diferença entre 32 vs 768 com n_layer = 1,0.0000
+38,768,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre 16 vs 32 com n_layer = 1; sem diferença entre 16 vs 768 com n_layer = 1; sem diferença entre 32 vs 768 com n_layer = 1,0.0000

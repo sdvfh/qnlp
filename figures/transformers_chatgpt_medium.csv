@@ -1,0 +1,112 @@
+model_classifier,model_transformer,n_layers,whislo,q1,median,q3,whishi,outliers_left,outliers_right,observacoes,pct_diff,best_model
+1,tomaarsen/mpnet-base-nli-matryoshka,1,0.7407,0.7407,0.7407,0.7407,0.7407,[0.7273],"[0.7636, 0.75, 0.75, 0.7636, 0.7636, 0.75, 0.75]",sem diferença entre layers (n_layers = 1 ou = 10),-6.2651,all-mpnet-base-v2
+1,tomaarsen/mpnet-base-nli-matryoshka,10,0.7143,0.7407,0.7407,0.7636,0.7778,[],[0.8],sem diferença entre layers (n_layers = 1 ou = 10); sem diferença entre nomic-ai/nomic-embed-text-v1.5 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 10,-6.6376,all-mpnet-base-v2
+1,nomic-ai/nomic-embed-text-v1.5,1,0.7308,0.7308,0.7308,0.7451,0.7547,[],[],sem diferença entre layers (n_layers = 1 ou = 10),-6.2651,all-mpnet-base-v2
+1,nomic-ai/nomic-embed-text-v1.5,10,0.7170,0.7308,0.7407,0.7523,0.7692,[],[0.7857],sem diferença entre layers (n_layers = 1 ou = 10); sem diferença entre nomic-ai/nomic-embed-text-v1.5 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 10,-6.6376,all-mpnet-base-v2
+1,all-mpnet-base-v2,1,0.7755,0.7755,0.8000,0.8000,0.8302,[],[],sem diferença entre layers (n_layers = 1 ou = 10),-6.2651,all-mpnet-base-v2
+1,all-mpnet-base-v2,10,0.7600,0.7843,0.8077,0.8077,0.8302,[],"[0.8519, 0.8519]",sem diferença entre layers (n_layers = 1 ou = 10); sem diferença entre nomic-ai/nomic-embed-text-v1.5 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 10,-6.6376,all-mpnet-base-v2
+2,tomaarsen/mpnet-base-nli-matryoshka,1,0.7200,0.7451,0.7451,0.7669,0.7925,[],[],,-16.9764,all-mpnet-base-v2
+2,tomaarsen/mpnet-base-nli-matryoshka,10,0.7925,0.7925,0.7925,0.7925,0.7925,"[0.7692, 0.7843, 0.7692, 0.7692, 0.7692, 0.7843]","[0.8148, 0.8077, 0.8077, 0.8148, 0.8077]",,-15.8502,all-mpnet-base-v2
+2,nomic-ai/nomic-embed-text-v1.5,1,0.8511,0.8511,0.8511,0.8511,0.8511,[],"[0.8571, 0.875, 0.875, 0.8696, 0.875, 0.8571, 0.875]",,-16.9764,all-mpnet-base-v2
+2,nomic-ai/nomic-embed-text-v1.5,10,0.8750,0.8980,0.9167,0.9167,0.9167,"[0.8696, 0.8511]",[],,-15.8502,all-mpnet-base-v2
+2,all-mpnet-base-v2,1,0.8980,0.8980,0.8980,0.9200,0.9200,[],[],,-16.9764,all-mpnet-base-v2
+2,all-mpnet-base-v2,10,0.9167,0.9388,0.9388,0.9547,0.9600,[0.898],[],,-15.8502,all-mpnet-base-v2
+3,tomaarsen/mpnet-base-nli-matryoshka,1,0.4000,0.4000,0.4000,0.4000,0.4000,"[0.3922, 0.3922, 0.3922]",[],sem diferença entre layers (n_layers = 1 ou = 10),-21.6344,all-mpnet-base-v2
+3,tomaarsen/mpnet-base-nli-matryoshka,10,0.4000,0.4000,0.4000,0.4000,0.4000,"[0.3922, 0.3922, 0.3922, 0.3922]",[],sem diferença entre layers (n_layers = 1 ou = 10),-21.7806,all-mpnet-base-v2
+3,nomic-ai/nomic-embed-text-v1.5,1,0.2500,0.2500,0.2553,0.2553,0.2553,[],[],sem diferença entre layers (n_layers = 1 ou = 10),-21.6344,all-mpnet-base-v2
+3,nomic-ai/nomic-embed-text-v1.5,10,0.2500,0.2500,0.2527,0.2553,0.2553,[],[],sem diferença entre layers (n_layers = 1 ou = 10),-21.7806,all-mpnet-base-v2
+3,all-mpnet-base-v2,1,0.5091,0.5091,0.5091,0.5091,0.5091,"[0.5, 0.4906]","[0.5185, 0.5185, 0.5185, 0.5185]",sem diferença entre layers (n_layers = 1 ou = 10),-21.6344,all-mpnet-base-v2
+3,all-mpnet-base-v2,10,0.5091,0.5091,0.5091,0.5091,0.5091,[0.5],"[0.5185, 0.5185, 0.5185, 0.5185]",sem diferença entre layers (n_layers = 1 ou = 10),-21.7806,all-mpnet-base-v2
+4,tomaarsen/mpnet-base-nli-matryoshka,1,0.7407,0.7407,0.7407,0.7477,0.7500,[0.7273],"[0.7636, 0.7636, 0.7636, 0.7636]",,-5.7662,all-mpnet-base-v2
+4,tomaarsen/mpnet-base-nli-matryoshka,10,0.8333,0.8571,0.8800,0.9200,0.9200,[],[],sem diferença entre nomic-ai/nomic-embed-text-v1.5 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 10,-5.7818,all-mpnet-base-v2
+4,nomic-ai/nomic-embed-text-v1.5,1,0.7308,0.7308,0.7308,0.7308,0.7308,[],"[0.7407, 0.7857, 0.7547, 0.7547, 0.7547, 0.7547, 0.7451]",,-5.7662,all-mpnet-base-v2
+4,nomic-ai/nomic-embed-text-v1.5,10,0.8800,0.8980,0.9167,0.9167,0.9167,"[0.8627, 0.8696, 0.8462, 0.8571]",[],sem diferença entre nomic-ai/nomic-embed-text-v1.5 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 10,-5.7818,all-mpnet-base-v2
+4,all-mpnet-base-v2,1,0.7755,0.7755,0.8000,0.8000,0.8235,[],[],,-5.7662,all-mpnet-base-v2
+4,all-mpnet-base-v2,10,0.9167,0.9388,0.9388,0.9600,0.9600,[0.902],[],sem diferença entre nomic-ai/nomic-embed-text-v1.5 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 10,-5.7818,all-mpnet-base-v2
+5,tomaarsen/mpnet-base-nli-matryoshka,1,0.8571,0.8935,0.9200,0.9200,0.9200,"[0.8163, 0.8235, 0.8333]",[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1; sem diferença entre layers (n_layers = 1 ou = 10),0.0000,tomaarsen/mpnet-base-nli-matryoshka
+5,tomaarsen/mpnet-base-nli-matryoshka,10,0.8077,0.8571,0.8890,0.9200,0.9388,[],[],sem diferença entre layers (n_layers = 1 ou = 10); sem diferença entre nomic-ai/nomic-embed-text-v1.5 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 10,-5.4156,all-mpnet-base-v2
+5,nomic-ai/nomic-embed-text-v1.5,1,0.8511,0.8750,0.8800,0.8980,0.9167,[0.8302],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+5,nomic-ai/nomic-embed-text-v1.5,10,0.8800,0.8980,0.8980,0.9167,0.9167,"[0.8511, 0.8462, 0.8627]",[],sem diferença entre nomic-ai/nomic-embed-text-v1.5 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 10,-5.4156,all-mpnet-base-v2
+5,all-mpnet-base-v2,1,0.9020,0.9020,0.9020,0.9020,0.9020,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+5,all-mpnet-base-v2,10,0.9388,0.9388,0.9388,0.9388,0.9388,"[0.92, 0.92, 0.9167, 0.92, 0.9167, 0.902, 0.92]","[0.96, 0.96, 0.96, 0.96, 0.96, 0.96]",sem diferença entre nomic-ai/nomic-embed-text-v1.5 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 10,-5.4156,all-mpnet-base-v2
+6,tomaarsen/mpnet-base-nli-matryoshka,1,0.8000,0.8000,0.8000,0.8000,0.8000,[],[0.8333],,-11.8778,all-mpnet-base-v2
+6,tomaarsen/mpnet-base-nli-matryoshka,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+6,nomic-ai/nomic-embed-text-v1.5,1,0.5957,0.6182,0.6296,0.6415,0.6538,[],[],,-11.8778,all-mpnet-base-v2
+6,nomic-ai/nomic-embed-text-v1.5,10,0.9167,0.9388,0.9400,0.9600,0.9796,[0.902],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+6,all-mpnet-base-v2,1,0.9091,0.9091,0.9091,0.9091,0.9091,[],[],,-11.8778,all-mpnet-base-v2
+6,all-mpnet-base-v2,10,0.9412,0.9434,0.9804,0.9804,0.9804,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+7,tomaarsen/mpnet-base-nli-matryoshka,1,0.7347,0.7347,0.7347,0.7451,0.7600,[],[],,-7.2705,all-mpnet-base-v2
+7,tomaarsen/mpnet-base-nli-matryoshka,10,0.8333,0.8571,0.8571,0.9200,0.9200,[],[],,-6.7258,all-mpnet-base-v2
+7,nomic-ai/nomic-embed-text-v1.5,1,0.7111,0.7234,0.7391,0.7488,0.7755,[],[],,-7.2705,all-mpnet-base-v2
+7,nomic-ai/nomic-embed-text-v1.5,10,0.7442,0.8000,0.8400,0.8980,0.9167,[],[],,-6.7258,all-mpnet-base-v2
+7,all-mpnet-base-v2,1,0.8000,0.8000,0.8000,0.8000,0.8000,[],[],,-7.2705,all-mpnet-base-v2
+7,all-mpnet-base-v2,10,0.9167,0.9388,0.9388,0.9600,0.9600,[],[],,-6.7258,all-mpnet-base-v2
+8,tomaarsen/mpnet-base-nli-matryoshka,1,0.8571,0.8571,0.8750,0.8750,0.8846,[],[],,-1.5540,nomic-ai/nomic-embed-text-v1.5
+8,tomaarsen/mpnet-base-nli-matryoshka,10,0.9600,0.9796,0.9800,1.0000,1.0000,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+8,nomic-ai/nomic-embed-text-v1.5,1,0.8846,0.8846,0.8846,0.8846,0.8846,"[0.8627, 0.8627, 0.88, 0.8627, 0.8627]","[0.9057, 0.9057, 0.8889]",,-1.5540,nomic-ai/nomic-embed-text-v1.5
+8,nomic-ai/nomic-embed-text-v1.5,10,0.9167,0.9394,0.9600,0.9600,0.9600,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+8,all-mpnet-base-v2,1,0.7391,0.7391,0.7391,0.7391,0.7391,[],"[0.7727, 0.7727, 0.7556, 0.7727, 0.7556, 0.7727]",,-1.5540,nomic-ai/nomic-embed-text-v1.5
+8,all-mpnet-base-v2,10,0.9412,0.9600,0.9615,0.9804,1.0000,[0.9231],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+9,tomaarsen/mpnet-base-nli-matryoshka,1,0.9200,0.9200,0.9200,0.9200,0.9200,"[0.898, 0.898]",[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+9,tomaarsen/mpnet-base-nli-matryoshka,10,1.0000,1.0000,1.0000,1.0000,1.0000,"[0.9796, 0.9796]",[],sem diferença entre all-mpnet-base-v2 vs nomic-ai/nomic-embed-text-v1.5 com n_layer = 10,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+9,nomic-ai/nomic-embed-text-v1.5,1,0.7037,0.7070,0.7273,0.7407,0.7407,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+9,nomic-ai/nomic-embed-text-v1.5,10,0.9167,0.9388,0.9600,0.9600,0.9804,[],[],sem diferença entre all-mpnet-base-v2 vs nomic-ai/nomic-embed-text-v1.5 com n_layer = 10,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+9,all-mpnet-base-v2,1,0.8000,0.8261,0.8261,0.8511,0.8750,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+9,all-mpnet-base-v2,10,0.9231,0.9434,0.9615,0.9615,0.9804,[],[],sem diferença entre all-mpnet-base-v2 vs nomic-ai/nomic-embed-text-v1.5 com n_layer = 10,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+10,tomaarsen/mpnet-base-nli-matryoshka,1,0.8333,0.8571,0.8800,0.8800,0.9020,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+10,tomaarsen/mpnet-base-nli-matryoshka,10,0.9583,0.9796,1.0000,1.0000,1.0000,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+10,nomic-ai/nomic-embed-text-v1.5,1,0.6667,0.6821,0.6829,0.6977,0.7143,"[0.65, 0.65, 0.65]","[0.7234, 0.7273, 0.7391, 0.7391]",,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+10,nomic-ai/nomic-embed-text-v1.5,10,0.8750,0.8980,0.9167,0.9167,0.9412,"[0.8627, 0.8696, 0.8571, 0.8571]",[0.9804],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+10,all-mpnet-base-v2,1,0.8163,0.8361,0.8511,0.8511,0.8511,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+10,all-mpnet-base-v2,10,0.9388,0.9600,0.9600,0.9804,0.9804,[0.92],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+11,tomaarsen/mpnet-base-nli-matryoshka,1,0.8000,0.8000,0.8000,0.8000,0.8000,[],"[0.8235, 0.8235, 0.8235, 0.8235, 0.8235]",,-7.2469,all-mpnet-base-v2
+11,tomaarsen/mpnet-base-nli-matryoshka,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+11,nomic-ai/nomic-embed-text-v1.5,1,0.7917,0.7938,0.8163,0.8163,0.8235,[],[],,-7.2469,all-mpnet-base-v2
+11,nomic-ai/nomic-embed-text-v1.5,10,0.9388,0.9588,0.9600,0.9796,0.9804,"[0.9167, 0.9167]",[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+11,all-mpnet-base-v2,1,0.8444,0.8444,0.8696,0.8936,0.8936,[],[],,-7.2469,all-mpnet-base-v2
+11,all-mpnet-base-v2,10,0.9434,0.9434,0.9434,0.9558,0.9615,[],[0.9804],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+12,tomaarsen/mpnet-base-nli-matryoshka,1,0.7273,0.7407,0.7407,0.7500,0.7636,[],[],,-5.6305,all-mpnet-base-v2
+12,tomaarsen/mpnet-base-nli-matryoshka,10,0.9583,0.9796,1.0000,1.0000,1.0000,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 10,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+12,nomic-ai/nomic-embed-text-v1.5,1,0.7308,0.7308,0.7308,0.7451,0.7547,[],[],,-5.6305,all-mpnet-base-v2
+12,nomic-ai/nomic-embed-text-v1.5,10,0.8571,0.8947,0.9020,0.9200,0.9362,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 10,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+12,all-mpnet-base-v2,1,0.7755,0.7755,0.8000,0.8000,0.8235,[],[],,-5.6305,all-mpnet-base-v2
+12,all-mpnet-base-v2,10,0.9804,0.9804,0.9804,0.9804,0.9804,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 10,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+13,tomaarsen/mpnet-base-nli-matryoshka,1,0.9130,0.9167,0.9362,0.9388,0.9600,[],[0.9804],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+13,tomaarsen/mpnet-base-nli-matryoshka,10,0.9583,0.9600,0.9796,1.0000,1.0000,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 10,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+13,nomic-ai/nomic-embed-text-v1.5,1,0.7826,0.8163,0.8248,0.8400,0.8750,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+13,nomic-ai/nomic-embed-text-v1.5,10,0.8800,0.9020,0.9200,0.9381,0.9600,[0.8333],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 10,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+13,all-mpnet-base-v2,1,0.9020,0.9020,0.9020,0.9020,0.9020,[],"[0.92, 0.92]",,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+13,all-mpnet-base-v2,10,0.9804,0.9804,0.9804,0.9804,0.9804,"[0.9615, 0.9412]",[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 10,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+14,tomaarsen/mpnet-base-nli-matryoshka,1,0.8980,0.8980,0.9200,0.9200,0.9200,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+14,tomaarsen/mpnet-base-nli-matryoshka,10,1.0000,1.0000,1.0000,1.0000,1.0000,"[0.9796, 0.9804, 0.9796, 0.9796]",[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+14,nomic-ai/nomic-embed-text-v1.5,1,0.8163,0.8400,0.8462,0.8586,0.8627,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+14,nomic-ai/nomic-embed-text-v1.5,10,0.9130,0.9388,0.9583,0.9747,0.9796,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+14,all-mpnet-base-v2,1,0.8800,0.8800,0.8800,0.8800,0.8800,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+14,all-mpnet-base-v2,10,0.9434,0.9434,0.9434,0.9434,0.9434,"[0.9231, 0.9231]",[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+15,tomaarsen/mpnet-base-nli-matryoshka,1,0.9796,0.9796,0.9796,0.9796,0.9796,"[0.9583, 0.9362, 0.96, 0.96, 0.96, 0.96]","[1.0, 1.0, 1.0, 1.0, 1.0, 1.0]",,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+15,tomaarsen/mpnet-base-nli-matryoshka,10,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+15,nomic-ai/nomic-embed-text-v1.5,1,0.8750,0.8947,0.9093,0.9200,0.9412,[],[],,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+15,nomic-ai/nomic-embed-text-v1.5,10,0.9600,0.9600,0.9600,0.9600,0.9600,"[0.9388, 0.9583, 0.9583]","[0.9796, 0.9796, 0.9796, 0.9796, 0.9796]",,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+15,all-mpnet-base-v2,1,0.9020,0.9276,0.9434,0.9615,0.9804,[],[],sem diferença entre layers (n_layers = 1 ou = 10),0.0000,tomaarsen/mpnet-base-nli-matryoshka
+15,all-mpnet-base-v2,10,0.9434,0.9434,0.9434,0.9434,0.9434,[],"[0.9615, 0.9615, 0.9804]",sem diferença entre layers (n_layers = 1 ou = 10),0.0000,tomaarsen/mpnet-base-nli-matryoshka
+32,tomaarsen/mpnet-base-nli-matryoshka,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,all-mpnet-base-v2
+32,nomic-ai/nomic-embed-text-v1.5,1,0.9362,0.9362,0.9362,0.9362,0.9362,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,all-mpnet-base-v2
+32,all-mpnet-base-v2,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,all-mpnet-base-v2
+33,tomaarsen/mpnet-base-nli-matryoshka,1,0.5581,0.6772,0.7454,0.8091,1.0000,"[0.0, 0.4375, 0.0, 0.2143, 0.2143]",[],sem diferença entre all-mpnet-base-v2 vs nomic-ai/nomic-embed-text-v1.5 com n_layer = 1; sem diferença entre nomic-ai/nomic-embed-text-v1.5 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+33,nomic-ai/nomic-embed-text-v1.5,1,0.3636,0.5301,0.6348,0.7500,0.8511,[0.0976],[],sem diferença entre all-mpnet-base-v2 vs nomic-ai/nomic-embed-text-v1.5 com n_layer = 1; sem diferença entre nomic-ai/nomic-embed-text-v1.5 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+33,all-mpnet-base-v2,1,0.0000,0.0192,0.6583,0.6667,0.8372,[],[],sem diferença entre all-mpnet-base-v2 vs nomic-ai/nomic-embed-text-v1.5 com n_layer = 1; sem diferença entre nomic-ai/nomic-embed-text-v1.5 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+34,tomaarsen/mpnet-base-nli-matryoshka,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,all-mpnet-base-v2
+34,nomic-ai/nomic-embed-text-v1.5,1,0.9796,0.9796,0.9796,0.9796,0.9796,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,all-mpnet-base-v2
+34,all-mpnet-base-v2,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,all-mpnet-base-v2
+35,tomaarsen/mpnet-base-nli-matryoshka,1,0.9796,0.9796,0.9796,1.0000,1.0000,[],[],,-1.0405,all-mpnet-base-v2
+35,nomic-ai/nomic-embed-text-v1.5,1,0.9388,0.9583,0.9583,0.9796,0.9804,[],[],,-1.0405,all-mpnet-base-v2
+35,all-mpnet-base-v2,1,1.0000,1.0000,1.0000,1.0000,1.0000,"[0.9804, 0.9804, 0.9804, 0.9804, 0.9804, 0.9804]",[],,-1.0405,all-mpnet-base-v2
+36,tomaarsen/mpnet-base-nli-matryoshka,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+36,nomic-ai/nomic-embed-text-v1.5,1,0.9362,0.9583,0.9583,0.9796,0.9796,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+36,all-mpnet-base-v2,1,1.0000,1.0000,1.0000,1.0000,1.0000,[0.9796],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,tomaarsen/mpnet-base-nli-matryoshka
+37,tomaarsen/mpnet-base-nli-matryoshka,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,all-mpnet-base-v2
+37,nomic-ai/nomic-embed-text-v1.5,1,0.9796,0.9796,0.9796,0.9796,0.9796,[0.9583],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,all-mpnet-base-v2
+37,all-mpnet-base-v2,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,all-mpnet-base-v2
+38,tomaarsen/mpnet-base-nli-matryoshka,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,all-mpnet-base-v2
+38,nomic-ai/nomic-embed-text-v1.5,1,0.9583,0.9583,0.9796,0.9796,0.9796,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,all-mpnet-base-v2
+38,all-mpnet-base-v2,1,1.0000,1.0000,1.0000,1.0000,1.0000,[],[],sem diferença entre all-mpnet-base-v2 vs tomaarsen/mpnet-base-nli-matryoshka com n_layer = 1,0.0000,all-mpnet-base-v2
