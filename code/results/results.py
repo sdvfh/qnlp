@@ -723,7 +723,7 @@ def generate_figure(
                 hatch_map,
             )
 
-        ax_top.set_title("Models 3 e 33")
+        ax_top.set_title("Modelos 3 e 33")
         ax_bottom.set_title("Demais Modelos")
 
         primary_handles = []
