@@ -1,4 +1,4 @@
-import pickle
+import json
 from pathlib import Path
 
 import pandas as pd
@@ -6,8 +6,8 @@ import pandas as pd
 
 def read_summary():
     results_path = Path(__file__).parent.parent.parent / "results"
-    with open(str(results_path / "summary.pkl"), "rb") as f:
-        summary = pickle.load(f)
+    with open(str(results_path / "runs.json"), "r") as f:
+        summary = json.load(f)
 
     new_summary = []
     for run in summary:
