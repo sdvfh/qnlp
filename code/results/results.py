@@ -46,14 +46,14 @@ pd.set_option("future.no_silent_downcasting", True)
 
 # >>> NOVO: grupos fixos de circuitos solicitados
 CIRCUIT_GROUPS = [
-    list(range(1, 7)),            # 1–6
-    list(range(7, 12)),           # 7–11
-    list(range(12, 16)),          # 12–15
-    [32, 33, 36],                 # 32, 33, 36
-    [34, 35, 37, 38],             # 34, 35, 37, 38
-    list(range(16, 22)),          # 16–21
-    list(range(22, 32)),          # 22–31
-    list(range(39, 45)),          # 39–44
+    list(range(1, 7)),  # 1–6
+    list(range(7, 12)),  # 7–11
+    list(range(12, 16)),  # 12–15
+    [32, 33, 36],  # 32, 33, 36
+    [34, 35, 37, 38],  # 34, 35, 37, 38
+    list(range(16, 22)),  # 16–21
+    list(range(22, 32)),  # 22–31
+    list(range(39, 45)),  # 39–44
 ]
 ALLOWED_CLASSIFIERS = sorted({c for grp in CIRCUIT_GROUPS for c in grp})
 
@@ -257,6 +257,7 @@ def plot_panel(
     ax.set_yticks(np.arange(len(classifier_order)))
     ax.set_yticklabels(classifier_order)
     ax.set_xlabel("F1")
+    ax.set_ylabel("Circuito ID")
 
 
 def generate_figure(
@@ -314,7 +315,9 @@ def generate_figure(
             global TARGET  # usa a variável global já presente no script
             if TARGET in piv.columns:
                 best_ref_transformers = piv.idxmax(axis=1)
-                percent_diff_transformers = (piv[TARGET] - piv.max(axis=1)) / piv.max(axis=1) * 100
+                percent_diff_transformers = (
+                    (piv[TARGET] - piv.max(axis=1)) / piv.max(axis=1) * 100
+                )
         except NameError:
             # Caso TARGET não exista, não cria painel de diferença
             percent_diff_transformers = None
@@ -327,23 +330,33 @@ def generate_figure(
             continue
 
         positions, pos_map = compute_positions(
-            n_rows=len(order), primaries=primary_vals, layers=layers, width=width, gap=block_gap
+            n_rows=len(order),
+            primaries=primary_vals,
+            layers=layers,
+            width=width,
+            gap=block_gap,
         )
 
         has_diff_panel = (
-            (primary_col == "n_features" and percent_diff_features is not None)
-            or (primary_col == "model_transformer" and len(primary_vals) > 1 and percent_diff_transformers is not None)
+            primary_col == "n_features" and percent_diff_features is not None
+        ) or (
+            primary_col == "model_transformer"
+            and len(primary_vals) > 1
+            and percent_diff_transformers is not None
         )
 
-        height = max(3.5, 1.1 * len(order) + 2.0)
+        height = max(12, 1.1 * len(order) + 2.0)
         if has_diff_panel:
             fig, axes = plt.subplots(
-                1, 2, figsize=(6.8, height), dpi=300,
-                gridspec_kw={"width_ratios": [3, 1]}
+                1,
+                2,
+                figsize=(7.2, height),
+                dpi=300,
+                gridspec_kw={"width_ratios": [3, 1]},
             )
             ax_left, ax_right = axes
         else:
-            fig, ax_left = plt.subplots(1, 1, figsize=(6.2, height), dpi=300)
+            fig, ax_left = plt.subplots(1, 1, figsize=(7.2, height), dpi=300)
             ax_right = None
 
         # Painel esquerdo: boxplots
@@ -360,7 +373,7 @@ def generate_figure(
             color_map,
             hatch_map,
         )
-        ax_left.set_title(f"Grupo {g_idx}: {', '.join(map(str, group_ids))}")
+        # ax_left.set_title(f"Grupo {g_idx}: {', '.join(map(str, group_ids))}")
 
         # Painel direito: barras de diferença (quando aplicável)
         if has_diff_panel and ax_right is not None:
@@ -371,7 +384,11 @@ def generate_figure(
 
             y_idx = np.arange(len(order))
             bar_h = 0.3
-            offsets = {layers[0]: -bar_h / 2, layers[1]: bar_h / 2} if len(layers) >= 2 else {layers[0]: 0.0}
+            offsets = (
+                {layers[0]: -bar_h / 2, layers[1]: bar_h / 2}
+                if len(layers) >= 2
+                else {layers[0]: 0.0}
+            )
             all_vals: List[float] = []
 
             if primary_col == "n_features" and percent_diff_features is not None:
@@ -390,9 +407,13 @@ def generate_figure(
                     colors = ["green" if v > 0 else "red" for v in vals_p]
 
                     ax_right.barh(
-                        ys_p, vals_p, height=bar_h,
-                        facecolor=colors, edgecolor="black",
-                        hatch=hatch_map.get(layer, ""), label=f"{layer} camada{'s' if layer>1 else ''}"
+                        ys_p,
+                        vals_p,
+                        height=bar_h,
+                        facecolor=colors,
+                        edgecolor="black",
+                        hatch=hatch_map.get(layer, ""),
+                        label=f"{layer} camada{'s' if layer>1 else ''}",
                     )
                     all_vals.extend(vals_p.tolist())
 
@@ -418,7 +439,9 @@ def generate_figure(
                     values = series_full.fillna(0).values
                     ys = y_idx + offsets.get(layer, 0.0)
                     present_mask = series_full.notna().values
-                    for v, y, present_flag in zip(values, ys, present_mask, strict=True):
+                    for v, y, present_flag in zip(
+                        values, ys, present_mask, strict=True
+                    ):
                         if not present_flag:
                             continue
                         text = f"{int(np.round(v))}"
@@ -431,11 +454,20 @@ def generate_figure(
                             ha = "left"
                             color_txt = "black"
                         ax_right.text(
-                            x_text, y, text, va="center", ha=ha,
-                            fontsize="x-small", color=color_txt,
+                            x_text,
+                            y,
+                            text,
+                            va="center",
+                            ha=ha,
+                            fontsize="x-small",
+                            color=color_txt,
                         )
 
-            elif primary_col == "model_transformer" and len(primary_vals) > 1 and percent_diff_transformers is not None:
+            elif (
+                primary_col == "model_transformer"
+                and len(primary_vals) > 1
+                and percent_diff_transformers is not None
+            ):
                 for layer in layers:
                     try:
                         layer_diff = percent_diff_transformers.xs(layer, level=1)
@@ -454,9 +486,13 @@ def generate_figure(
                     colors = [color_map[model] for model in ref_full[present].tolist()]
 
                     ax_right.barh(
-                        ys_p, vals_p, height=bar_h,
-                        facecolor=colors, edgecolor="black",
-                        hatch=hatch_map.get(layer, ""), label=f"{layer} camada{'s' if layer>1 else ''}"
+                        ys_p,
+                        vals_p,
+                        height=bar_h,
+                        facecolor=colors,
+                        edgecolor="black",
+                        hatch=hatch_map.get(layer, ""),
+                        label=f"{layer} camada{'s' if layer>1 else ''}",
                     )
                     all_vals.extend(vals_p.tolist())
 
@@ -476,7 +512,9 @@ def generate_figure(
                 for layer in layers:
                     try:
                         layer_diff = percent_diff_transformers.xs(layer, level=1)
-                        ref_series = best_ref_transformers.xs(layer, level=1)  # vencedores por (classifier, layer)
+                        ref_series = best_ref_transformers.xs(
+                            layer, level=1
+                        )  # vencedores por (classifier, layer)
                     except KeyError:
                         continue
 
@@ -486,9 +524,13 @@ def generate_figure(
                     ys = y_idx + offsets.get(layer, 0.0)
                     present_mask = layer_full.notna().values
                     vals = layer_full.fillna(0).values
-                    refs = ref_full.fillna("").astype(str).values  # nomes dos vencedores
+                    refs = (
+                        ref_full.fillna("").astype(str).values
+                    )  # nomes dos vencedores
 
-                    for v, y, present_flag, ref_name in zip(vals, ys, present_mask, refs, strict=True):
+                    for v, y, present_flag, ref_name in zip(
+                        vals, ys, present_mask, refs, strict=True
+                    ):
                         if not present_flag:
                             continue
 
@@ -512,17 +554,24 @@ def generate_figure(
                             color_txt = "white" if wide else "black"
 
                         ax_right.text(
-                            x_text, y, text,
-                            va="center", ha=ha,
+                            x_text,
+                            y,
+                            text,
+                            va="center",
+                            ha=ha,
                             fontsize="x-small",
                             color=color_txt,
                         )
 
             # Legenda no painel esquerdo
-            primary_handles = [
-                Patch(facecolor=color_map[p], label=attr_label_fmt.format(p))
-                for p in primary_vals
-            ] if attr_label_fmt else []
+            primary_handles = (
+                [
+                    Patch(facecolor=color_map[p], label=attr_label_fmt.format(p))
+                    for p in primary_vals
+                ]
+                if attr_label_fmt
+                else []
+            )
             layer_handles = [
                 Patch(
                     facecolor="white",
@@ -532,11 +581,24 @@ def generate_figure(
                 )
                 for layer in layers
             ]
-            x_handle = Line2D([], [], marker="x", color="#ed1fed", ls="", markersize=12,
-                              label="Sem diferença entre camadas")
-            legend_handles = (primary_handles + layer_handles + [x_handle]) if primary_handles else (layer_handles + [x_handle])
+            x_handle = Line2D(
+                [],
+                [],
+                marker="x",
+                color="#ed1fed",
+                ls="",
+                markersize=12,
+                label="Sem diferença entre camadas",
+            )
+            legend_handles = (
+                (primary_handles + layer_handles + [x_handle])
+                if primary_handles
+                else (layer_handles + [x_handle])
+            )
             if arrow_label:
-                legend_handles.append(Line2D([], [], color="#0b31bf", lw=1.5, label=arrow_label))
+                legend_handles.append(
+                    Line2D([], [], color="#0b31bf", lw=1.5, label=arrow_label)
+                )
             ax_left.legend(
                 handles=legend_handles,
                 title="Legenda",
@@ -548,10 +610,14 @@ def generate_figure(
             )
         else:
             # Legenda quando não há painel direito
-            primary_handles = [
-                Patch(facecolor=color_map[p], label=attr_label_fmt.format(p))
-                for p in primary_vals
-            ] if attr_label_fmt else []
+            primary_handles = (
+                [
+                    Patch(facecolor=color_map[p], label=attr_label_fmt.format(p))
+                    for p in primary_vals
+                ]
+                if attr_label_fmt
+                else []
+            )
             layer_handles = [
                 Patch(
                     facecolor="white",
@@ -561,11 +627,24 @@ def generate_figure(
                 )
                 for layer in layers
             ]
-            x_handle = Line2D([], [], marker="x", color="#ed1fed", ls="", markersize=12,
-                              label="Sem diferença entre camadas")
-            legend_handles = (primary_handles + layer_handles + [x_handle]) if primary_handles else (layer_handles + [x_handle])
+            x_handle = Line2D(
+                [],
+                [],
+                marker="x",
+                color="#ed1fed",
+                ls="",
+                markersize=12,
+                label="Sem diferença entre camadas",
+            )
+            legend_handles = (
+                (primary_handles + layer_handles + [x_handle])
+                if primary_handles
+                else (layer_handles + [x_handle])
+            )
             if arrow_label:
-                legend_handles.append(Line2D([], [], color="#0b31bf", lw=1.5, label=arrow_label))
+                legend_handles.append(
+                    Line2D([], [], color="#0b31bf", lw=1.5, label=arrow_label)
+                )
             ax_left.legend(
                 handles=legend_handles,
                 title="Legenda",
@@ -582,7 +661,7 @@ def generate_figure(
         for ext in ("png", "pgf", "pdf"):
             output_path = Path("../../figures") / f"{out_name}_{dataset}_g{g_idx}.{ext}"
             fig.savefig(output_path, bbox_inches="tight")
-        plt.show()
+        # plt.show()
         plt.close(fig)
         print(f"Saved: {output_path}")
 
@@ -722,7 +801,9 @@ def transcribe_figure_to_csv(
 if __name__ == "__main__":
     DATASETS = ("chatgpt_easy", "chatgpt_medium", "chatgpt_hard")
     layers = sorted(read_summary()["n_layers"].unique())  # e.g., [1, 10]
-    hatch_map = {layers[0]: "", layers[1]: "//"} if len(layers) >= 2 else {layers[0]: ""}
+    hatch_map = (
+        {layers[0]: "", layers[1]: "//"} if len(layers) >= 2 else {layers[0]: ""}
+    )
     BASE_MODELS = sorted(set(classical_models + quantum_models))
     ALLOWED_BASE = sorted(set(ALLOWED_CLASSIFIERS) & set(BASE_MODELS))
 
